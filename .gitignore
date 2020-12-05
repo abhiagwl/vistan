@@ -1,0 +1,9 @@
+samples
+test-model.pkl
+__pycache__
+data/*
+*test.py
+*.hjson
+*scratchpad.py
+*vi_on_stan.py
+README.html
