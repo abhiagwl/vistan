@@ -1,18 +1,14 @@
 import autograd.numpy as np
 import autograd.numpy.random as npr
-from autograd.scipy.special import logsumexp
-from utilities import (  relu, leakyrelu, mul_iterable,
-                                tanh, sigmoid, 
-                                logsigmoid, pos_diag, 
-                                pos_tril, coupling_Layer_specifications
-                             )
-from functools import partial
+import functools 
+
+import utilities as utils
 
 class Dist():
 
-    def __init__(self, z_len):
+    def __init__(self, zlen):
         
-        self.z_len = z_len
+        self.zlen = zlen
 
     def initial_params(self):
         
@@ -42,11 +38,11 @@ class Gaussian(Dist):
 
     def initial_params(self):
         
-        return [np.zeros(self.z_len,), S*np.eye(self.z_len)]
+        return [np.zeros(self.zlen,), S*np.eye(self.zlen)]
 
     def transform_params(self, params):
 
-        return params[0], pos_tril(params[1])
+        return params[0], utils.pos_tril(params[1])
 
 
     def sample(self, params, sample_shape = (), **kwargs):
@@ -55,7 +51,7 @@ class Gaussian(Dist):
 
         mu, sig = self.get_params(params, **kwargs)
         
-        samples = mu + np.dot(npr.randn(*sample_shape, self.z_len), sig.T)
+        samples = mu + np.dot(npr.randn(*sample_shape, self.zlen), sig.T)
         
         return samples
 
@@ -67,7 +63,7 @@ class Gaussian(Dist):
 
         M = (samples-mu)
 
-        a = self.z_len*np.log(2*np.pi)
+        a = self.zlen*np.log(2*np.pi)
 
         b = 2*np.sum(np.log((np.diag(sig))))
 
@@ -79,7 +75,7 @@ class Gaussian(Dist):
 
         mu, sig = self.get_params(params)
 
-        a = self.z_len*np.log(2*np.pi) + self.z_len
+        a = self.zlen*np.log(2*np.pi) + self.zlen
 
         b = 2*np.sum(np.log((np.diag(sig))))
 
@@ -91,7 +87,7 @@ class Diagonal(Gaussian):
 
     def initial_params(self):
         
-        return [np.zeros(self.z_len,), S*np.ones(self.z_len,)]
+        return [np.zeros(self.zlen,), S*np.ones(self.zlen,)]
 
     def transform_params(self, params):
         
@@ -100,10 +96,10 @@ class Diagonal(Gaussian):
 
 class Flows(Dist):
 
-    def __init__(self, z_len):
+    def __init__(self, zlen):
 
-        self.z_len = z_len
-        self.base_dist = Gaussian(self.z_len)
+        self.zlen = zlen
+        self.base_dist = Gaussian(self.zlen)
         self.base_dist_params = self.base_dist.initial_params()
 
     def transform_params(self, params):
@@ -168,20 +164,20 @@ class RealNVP(Flows):
                     num_hidden_units, 
                     num_hidden_layers, 
                     params_init_scale, 
-                    z_len):
+                    zlen):
         
         self.num_transformations = num_transformations
         self.num_hidden_layers = num_hidden_layers
         self.num_hidden_units = num_hidden_units
         self.params_init_scale = params_init_scale
 
-        super(RealNVP, self).__init__(z_len = z_len)
+        super(RealNVP, self).__init__(zlen = zlen)
     
     def initial_params(self):
 
         def generate_net_st():
 
-            coupling_layer_sizes = coupling_Layer_specifications(self.num_hidden_units, self.num_hidden_layers, self.z_len)
+            coupling_layer_sizes = utils.coupling_layer_specifications(self.num_hidden_units, self.num_hidden_layers, self.zlen)
 
             init_st_params = []
 
@@ -200,11 +196,11 @@ class RealNVP(Flows):
 
         inpW, inpb = params[0]
 
-        inputs = leakyrelu(np.dot(inputs, inpW) + inpb)
+        inputs = utils.leakyrelu(np.dot(inputs, inpW) + inpb)
 
         for W, b in params[1:-1]:
             outputs = np.dot(inputs, W) + b
-            inputs = leakyrelu(outputs)
+            inputs = utils.leakyrelu(outputs)
 
         outW, outb = params[-1]
         outputs = np.dot(inputs, outW) + outb
@@ -216,7 +212,7 @@ class RealNVP(Flows):
 
         assert(s.shape == t.shape)
 
-        return tanh(s),t
+        return utils.tanh(s),t
 
     def forward_transform(self, params, z):
 
@@ -277,7 +273,7 @@ def get_var_dist(hyper_params):
                                 num_hidden_units = hyper_params['rnvp_num_hidden_units'], 
                                 num_hidden_layers = hyper_params['rnvp_num_hidden_layers'], 
                                 params_init_scale = hyper_params['rnvp_params_init_scale'], 
-                                z_len = hyper_params['latent_dim']
+                                zlen = hyper_params['latent_dim']
                             )     
     else: 
         raise NotImplementedError
@@ -287,12 +283,13 @@ def get_var_dist(hyper_params):
 
 class Posterior():
 
-    def __init__(self, M_sampling, log_p, log_q, sample_q):
+    def __init__(self, M_sampling, log_p, log_q, sample_q, zlen):
 
         self.M_sampling = M_sampling,
         self.log_p = log_p, 
         self.log_q = log_q,
         self.sample_q = sample_q
+        self.zlen = zlen
                                          
 
     def sample(self, shape, params):
@@ -307,7 +304,7 @@ class Posterior():
 
         orig_shape = shape
 
-        shape = (mul_iterable(shape), M_sampling)
+        shape = (utils.mul_iterable(shape), M_sampling)
         
         samples = self.sample_q(params, shape)
 
@@ -325,7 +322,7 @@ class Posterior():
             
             final_samples.append(samples[i,j,:])
 
-        return np.array(final_samples).reshape(orig_shape + (-1,))
+        return np.array(final_samples).reshape(orig_shape + (self.zlen,))
 
     def log_prob(self, samples, params):
 
@@ -337,12 +334,12 @@ class Posterior():
 
             raise NotImplementedError
 
-def get_posterior(M_sampling, log_p, log_q, sample_q, params):
+def get_posterior(model, var_dist, params, M_sampling):
 
-    q = Posterior(M_sampling, log_p, log_q, sample_q)
+    q = Posterior(M_sampling, model.log_prob, var_dist.log_prob, var_dist.sample, var_dist.zlen)
 
-    q.sample = partial(q.sample, params = params)
+    q.sample = functools.partial(q.sample, params = params)
 
-    q.log_prob = partial(q.log_prob, params = params)
+    q.log_prob = functools.partial(q.log_prob, params = params)
 
     return q

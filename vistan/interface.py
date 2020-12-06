@@ -1,32 +1,29 @@
 import pystan
 import warnings
-from hashlib import md5
+from hashlib
 import pickle
 import re
 import os
 import collections
-from scipy.optimize import minimize
+from scipy
 import warnings
 import traceback
-from functools import partial
-
+from functools
 import autograd
 import numpy as np
-from utilities import suppress_stdout_stderr
+
+import utilities as utils
+
 ###########################################################################
 #  stuff related to loading stan models and data
 ###########################################################################
-
-def get_model(code, data, model_name = None):
-    model = Model(code, data, model_name=model_name)
-    return model
 
 def is_good_model(code, data, model_name = None):
     # TODO : make sure data is deterministic
 
     try:
 
-        model   = get_model(code, data, model_name)
+        model = Model(code, data, model_name)
         Z_nuts = model.sampling(iter=20)
         Z_mf   = model.mf(iter=100)
         Z_advi = model.advi(iter=100)
@@ -67,14 +64,14 @@ def standardize_code(text):
     return text
 
 # import Cython
-def modelcache(model_code, model_name=None, verbose = False, **kwargs):
+def get_compiled_model(model_code, model_name=None, verbose = False, **kwargs):
     """Use just as you would `stan` from pystan"""
     if not os.path.exists('data/cached-models'):
         print('creating cached-models/ to save compiled stan models')
         os.makedirs('data/cached-models')
 
     model_code_stripped = standardize_code(model_code)
-    code_hash = md5(model_code_stripped.encode('ascii')).hexdigest()
+    code_hash = hashlib.md5(model_code_stripped.encode('ascii')).hexdigest()
 
 
     if model_name is None:
@@ -88,7 +85,7 @@ def modelcache(model_code, model_name=None, verbose = False, **kwargs):
     else:
         try:
             print("Cached model not found. Recompiling...")            
-            with suppress_stdout_stderr(verbose = verbose):
+            with utils.suppress_stdout_stderr(verbose = verbose):
                 sm = pystan.StanModel(model_code=model_code, model_name=model_name, **kwargs)
         except:
             print("Error during compilation...")
@@ -111,10 +108,10 @@ class Model:
         self.model_name = model_name
         self.model_code = model_code
 
-        self.sm = modelcache(model_code=self.model_code,extra_compile_args=extra_compile_args,\
+        self.sm = get_compiled_model(model_code=self.model_code,extra_compile_args=extra_compile_args,\
                 model_name=self.model_name, verbose = verbose)
         try:
-            with suppress_stdout_stderr(verbose = verbose):
+            with utils.suppress_stdout_stderr(verbose = verbose):
                 self.fit = self.sm.sampling(data=self.data, iter=10, chains=1, init=0)
         except:
             print('Could not init model for ' + model_code)
@@ -147,7 +144,7 @@ class Model:
         z = self.z0()
         obj = autograd.value_and_grad(lambda z : -self.logp(z),0)
         kwargs['disp'] = False
-        rez = minimize(obj,z,method=method,jac=True,options=kwargs)
+        rez = scipy.optimize.minimize(obj,z,method=method,jac=True,options=kwargs)
         z = rez.x
         if with_rez:
             return rez.x, rez
@@ -161,7 +158,7 @@ class Model:
         ADVI returns constrained parameters by default.
         """
         try:
-            with suppress_stdout_stderr(verbose = verbose):
+            with utils.suppress_stdout_stderr(verbose = verbose):
                 rez = self.sm.vb(data=self.data,algorithm=algorithm,**kwargs)
         except:
             print('ADVI failed with error...\n', traceback.print_exc())
@@ -204,7 +201,7 @@ class Model:
 
 
     def log_prob(self, z):
-        return  partial(stan_model_batch_logp, log_p = self.logp, 
+        return  functools.partial(stan_model_batch_logp, log_p = self.logp, 
                     z_len = self.zlen)
 
 

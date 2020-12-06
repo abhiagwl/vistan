@@ -1,15 +1,14 @@
 import os
-from pickle import load, dump
-from time import time
-from functools import (partial, reduce)
-from operator import mul
-from collections import deque
-from traceback import print_exc 
+import pickle
+import time
+import functools
+import operator
+import collections
+import traceback 
+import autograd 
 import autograd.numpy as np 
 import autograd.numpy.random as npr
-from autograd import grad, value_and_grad
-from autograd.misc import flatten
-from autograd.misc.optimizers import adam
+import autograd.misc.optimizers as optim
 
 ########################################################################################
 ######################### Generic Inference Utilities ###############################
@@ -41,7 +40,7 @@ def inv_pos_tril(x):
     return np.tril(x, -1) + np.diag(inv_pos_diag(x)) 
 
 def mul_iterable(x):
-    return reduce(mul, x, 1)
+    return functools.reduce(operator.mul, x, 1)
     
 ########################################################################################
 ######################### Laplace's Initialization Utilities ###########################
@@ -71,14 +70,14 @@ def get_laplaces_init_params(log_p, z_len, num_epochs, ε = 1e-4):
     # Set L = cholesky(inv(-Hessian(μ)))
 
     z_0 = npr.rand(z_len)
-    val_and_grad = value_and_grad(lambda z: -log_p(z)) # using minimize to maximize
+    val_and_grad = autograd.value_and_grad(lambda z: -log_p(z)) # using minimize to maximize
 
     rez = minimize(val_and_grad, z_0, \
                     method='BFGS', jac=True,\
                     options={'maxiter':num_epochs, 'disp':True})
 
     μ = rez.x
-    H = Hessian_finite_differences(z = μ, grad_f = grad(lambda z : log_p(z)),\
+    H = Hessian_finite_differences(z = μ, grad_f = autograd.grad(lambda z : log_p(z)),\
                                     ε = ε)
 
     try :
@@ -164,7 +163,7 @@ def get_callback_arg_dict(hyper_params):
     if hyper_params['advi_use'] == True:
 
         buffer_len = np.int(max(0.01*hyper_params['num_epochs']/hyper_params['advi_callback_iteration'] , 2))
-        delta_results = deque(maxlen = buffer_len)
+        delta_results = collections.deque(maxlen = buffer_len)
 
         return {"delta_results" : delta_results}
 
@@ -218,7 +217,7 @@ def get_adapted_step_size(objective_grad, eval_function, init_params, \
 
         except Exception:
             print(f"Error occured during the optimization with step-size {step_size}...")
-            print(print_exc())
+            print(traceback.print_exc())
             print(f"Using initial parameters instead for {step_size}...")
             optimized_params = init_params
 
@@ -274,19 +273,19 @@ def optimization_handler(objective_grad, eval_function, init_params, optimizer,\
 
     results = []
 
-    t0 = time()
+    t0 = time.time()
 
     optimized_params = run_optimization(objective_grad = objective_grad,
                                         init_params = init_params,
                                         num_epochs = num_epochs,
                                         step_size = step_size,
-                                        callback = partial (callback, 
-                                                            results = results,
-                                                            t0 = t0,
-                                                            **get_callback_arg_dict(hyper_params)),
+                                        callback = functools.partial(callback, 
+                                                                    results = results,
+                                                                    t0 = t0,
+                                                                    **get_callback_arg_dict(hyper_params)),
                                         optimizer = optimizer)
 
-    tn = time() - t0
+    tn = time.time() - t0
     
     return results, optimized_params
 
@@ -296,7 +295,7 @@ def checkpoint(params, model, hyper_params, results, t0, n):
 
         if (n+1) in hyper_params['check_point_num_epochs']:
 
-            tn = time() - t0
+            tn = time.time() - t0
 
             save_results_parameters(hyper_params = hyper_params,
                                     params = params,
@@ -362,7 +361,7 @@ def advi_callback(params, t, g, results, delta_results, model, \
 
             print("Converged according to ADVI metrics for Median/Mean")
 
-            tn = time() - t0
+            tn = time.time() - t0
 
             save_results_parameters (hyper_params = hyper_params,
                                     params = params,
@@ -377,13 +376,13 @@ def advi_callback(params, t, g, results, delta_results, model, \
 def advi_optimizer(grad, x, callback, num_iters, step_size,\
                                  epsilon = 1e-16, tau = 1, alpha = 0.1):
 
-    x, unflatten = flatten(x)
+    x, unflatten = autograd.misc.flatten(x)
 
     s = np.zeros(len(x))
 
     for i in range(num_iters):
 
-        g = flatten(grad(unflatten(x), i))[0]
+        g = autograd.misc.flatten(autograd.grad(unflatten(x), i))[0]
 
         if callback: callback(unflatten(x), i, unflatten(g))
 
@@ -412,7 +411,7 @@ def get_optimizer(hyper_params):
 
     if hyper_params['optimizer']=="adam":
       
-        return adam
+        return optim.adam
 
     elif hyper_params['optimizer']=="advi":
 
@@ -482,16 +481,16 @@ def softmax_matrix(x):
 def dump_pickled_files(filename, objects, protocol = None):
     with open(filename,"wb") as f:
         if protocol is None:
-            dump(objects,f)
+            pickle.dump(objects,f)
         else:
-            dump(objects,f, protocol = protocol)
+            pickle.dump(objects,f, protocol = protocol)
 
 def open_pickled_files(filename, protocol = None):
     with open(filename,"rb") as f:
         if protocol is None:
-            objects = load(f)
+            objects = pickle.load(f)
         else:
-            objects = load(f, protocol = protocol)
+            objects = pickle.load(f, protocol = protocol)
         return objects
 
 

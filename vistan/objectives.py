@@ -1,20 +1,14 @@
-from functools import partial 
-from autograd.core import getval
-
+import functools
 import autograd.numpy as np
-from autograd.scipy.special import logsumexp
-
-from utilities import (softmax_matrix, callback, 
-                        callback, 
-                        advi_callback, 
-                        stan_model_batch_logp)
+import autograd.scipy.special as autoscipy
+import utilities as utils
 
 def objective_utils(params, log_p, log_q, sample_q, \
                                         M_training, num_copies_training):
 
     samples_shape = (num_copies_training, M_training)  
 
-    params_stopped = getval(params)
+    params_stopped = autograd.core.getval(params)
 
     z = sample_q(params, samples_shape)
     
@@ -39,7 +33,7 @@ def IWELBO(params, log_p, log_q, sample_q, M_training, num_copies_training):
     _, lp, lq, _ = objective_utils(params, log_p, log_q, sample_q,\
                                                  M_training, num_copies_training)
 
-    return np.mean(logsumexp(lp - lq, -1)) - np.log(M_training)
+    return np.mean(autoscipy.logsumexp(lp - lq, -1)) - np.log(M_training)
 
 def IWELBO_STL(params, log_p, log_q, sample_q, M_training, num_copies_training):
 
@@ -48,7 +42,7 @@ def IWELBO_STL(params, log_p, log_q, sample_q, M_training, num_copies_training):
 
     lR = lp - lq_stopped
 
-    return np.mean(np.sum(softmax_matrix(lR)*lR, -1))
+    return np.mean(np.sum(utils.softmax_matrix(lR)*lR, -1))
 
 def IWELBO_DREG(params, log_p, log_q, sample_q,\
                                  M_training, num_copies_training):
@@ -58,7 +52,7 @@ def IWELBO_DREG(params, log_p, log_q, sample_q,\
 
     lR = lp - lq_stopped
 
-    return np.mean(np.sum(np.power(softmax_matrix(lR), 2)*lR, -1))
+    return np.mean(np.sum(np.power(utils.softmax_matrix(lR), 2)*lR, -1))
 
 def choose_objective_eval_fn(hyper_params):
 
@@ -88,14 +82,14 @@ def choose_objective_eval_fn(hyper_params):
 def modify_objective_eval_fn(objective, evaluation_fn,\
                                              log_p, var_dist, hyper_params):
 
-    m_objective = partial(objective, 
+    m_objective = functools.partial(objective, 
                         log_p = log_p,
                         log_q = var_dist.log_prob, 
                         sample_q = var_dist.sample,
                         M_training = hyper_params['M_training'], 
                         num_copies_training = hyper_params['num_copies_training'])
 
-    m_evaluation_fn = partial(evaluation_fn, 
+    m_evaluation_fn = functools.partial(evaluation_fn, 
                             log_p = log_p,
                             log_q = var_dist.log_prob, 
                             sample_q = var_dist.sample,
@@ -104,7 +98,7 @@ def modify_objective_eval_fn(objective, evaluation_fn,\
 
     if hyper_params['grad_estimator_type'] == "closed-form-entropy":
 
-        m_objective = partial(m_objective, entropy_q = var_dist.entropy)
+        m_objective = functools.partial(m_objective, entropy_q = var_dist.entropy)
 
     return lambda params,t : -m_objective(params), m_evaluation_fn
 
