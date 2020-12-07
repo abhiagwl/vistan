@@ -136,33 +136,22 @@ def save_laplaces_init(params,  model_name):
 ######################### Optimization Utilities             ###########################
 ########################################################################################
 
-def stan_model_batch_logp(samples, log_p, z_len):
-    """
-    A simple function to get batched sample evaluation for models.
-    """
-    orig_samples_shape = samples.shape
-    assert(orig_samples_shape[-1] == z_len)
-    lp = np.array([log_p(s) for s in samples.reshape(-1, z_len)])
-
-    return lp.reshape(orig_samples_shape[:-1]) 
 
 
+def advi_baseline_asserts(hparams):
+
+    assert(hparams['advi_use'] == 1)
+    assert(hparams['vi_family'] == 'gaussian')
+    assert(hparams['M_training'] == 1)
+    assert(hparams['LI_use'] == 0)
+    assert(hparams['grad_estimator_type'] == 'closed-form-entropy')
 
 
-def advi_baseline_asserts(hyper_params):
+def get_callback_arg_dict(hparams):
 
-    assert(hyper_params['advi_use'] == 1)
-    assert(hyper_params['vi_family'] == 'gaussian')
-    assert(hyper_params['M_training'] == 1)
-    assert(hyper_params['LI_use'] == 0)
-    assert(hyper_params['grad_estimator_type'] == 'closed-form-entropy')
+    if hparams['advi_use'] == True:
 
-
-def get_callback_arg_dict(hyper_params):
-
-    if hyper_params['advi_use'] == True:
-
-        buffer_len = np.int(max(0.01*hyper_params['num_epochs']/hyper_params['advi_callback_iteration'] , 2))
+        buffer_len = np.int(max(0.01*hparams['num_epochs']/hparams['advi_callback_iteration'] , 2))
         delta_results = collections.deque(maxlen = buffer_len)
 
         return {"delta_results" : delta_results}
@@ -183,7 +172,7 @@ def run_optimization(objective_grad, init_params, step_size,\
     return optimized_params
 
 def get_adapted_step_size(objective_grad, eval_function, init_params, \
-                        optimizer, num_epochs, hyper_params):
+                        optimizer, num_epochs, hparams):
 
     """
     Implements the adaptive step-size scheme from the PyStan version of ADVI.
@@ -199,7 +188,7 @@ def get_adapted_step_size(objective_grad, eval_function, init_params, \
     print(f"########## Initial elbo: {init_elbo}")
     print("############################################ ")
 
-    for i, step_size in enumerate(hyper_params['advi_adapt_step_size_range']):
+    for i, step_size in enumerate(hparams['advi_adapt_step_size_range']):
 
         results = []
 
@@ -211,7 +200,7 @@ def get_adapted_step_size(objective_grad, eval_function, init_params, \
             optimized_params = run_optimization(objective_grad, 
                                                 init_params, 
                                                 step_size, 
-                                                hyper_params['advi_adapt_step_size_num_iters'], 
+                                                hparams['advi_adapt_step_size_num_iters'], 
                                                 None, 
                                                 advi_optimizer)
 
@@ -239,7 +228,7 @@ def get_adapted_step_size(objective_grad, eval_function, init_params, \
 
         else:
 
-            if  ((i+1) < len(hyper_params['advi_adapt_step_size_range'])):
+            if  ((i+1) < len(hparams['advi_adapt_step_size_range'])):
 
                 best_elbo = candidate_elbo
                 best_step_size = step_size
@@ -262,49 +251,44 @@ def get_adapted_step_size(objective_grad, eval_function, init_params, \
 
 
 def optimization_handler(objective_grad, eval_function, init_params, optimizer,\
-                            num_epochs, step_size, callback, hyper_params, 
-                            advi_use = False, adapt_step_size = False, **kwargs):
+                            num_epochs, step_size, callback, hparams, **kwargs):
 
-    if  (adapt_step_size) & (advi_use):
+    if  (hparams['advi_adapt_step_size']) & (hparams['advi_use']):
 
         step_size = get_adapted_step_size(objective_grad, eval_function,\
                                             init_params, optimizer, num_epochs, 
-                                            hyper_params)
+                                            hparams)
 
     results = []
-
     t0 = time.time()
-
     optimized_params = run_optimization(objective_grad = objective_grad,
                                         init_params = init_params,
                                         num_epochs = num_epochs,
                                         step_size = step_size,
                                         callback = functools.partial(callback, 
                                                                     results = results,
-                                                                    t0 = t0,
-                                                                    **get_callback_arg_dict(hyper_params)),
+                                                                    **get_callback_arg_dict(hparams)),
                                         optimizer = optimizer)
 
     tn = time.time() - t0
-    
     return results, optimized_params
 
-def checkpoint(params, model, hyper_params, results, t0, n):
+# def checkpoint(params, model, hparams, results, t0, n):
 
-    if hyper_params['check_point_use']==1:
+#     if hparams['check_point_use']==1:
 
-        if (n+1) in hyper_params['check_point_num_epochs']:
+#         if (n+1) in hparams['check_point_num_epochs']:
 
-            tn = time.time() - t0
+#             tn = time.time() - t0
 
-            save_results_parameters(hyper_params = hyper_params,
-                                    params = params,
-                                    model = model,
-                                    uniq_name = hyper_params['uniq_name']+"_check_point_"+str(n+1),
-                                    results = results,
-                                    time = tn/(n+1))
+#             save_results_parameters(hparams = hparams,
+#                                     params = params,
+#                                     model = model,
+#                                     uniq_name = hparams['uniq_name']+"_check_point_"+str(n+1),
+#                                     results = results,
+#                                     time = tn/(n+1))
 
-def callback(params, t, g, results, model, eval_function, hyper_params, t0):
+def callback(params, t, g, results, model, eval_function):
 
     results.append(eval_function(params))
 
@@ -319,25 +303,25 @@ def callback(params, t, g, results, model, eval_function, hyper_params, t0):
         print("Iteration {} IWELBO (RUNNING AVERAGE) {}".format(t+1, np.mean(results)))
         print("Iteration {} IWELBO (CURRENT ESTIMATE) {}".format(t+1, results[-1]))
 
-    checkpoint(params, model, hyper_params, results, t0 = t0, n = t)
+    # checkpoint(params, model, hparams, results, t0 = t0, n = t)
 
 def relative_difference(curr, prev):
 
     return np.abs((curr-prev)/prev)
 
 def advi_callback(params, t, g, results, delta_results, model, \
-                            eval_function, hyper_params, t0):
+                            eval_function, hparams):
 
     results.append(eval_function(params))
 
-    if (t+1)%hyper_params['advi_callback_iteration']==0:
+    if (t+1)%hparams['advi_callback_iteration']==0:
 
         print(f"Iteration {t+1} log likelihood IWELBO (RUNNING AVERAGE) {np.nanmean(results)}")
         print(f"Iteration {t+1} log likelihood IWELBO (CURRENT AVERAGE) {(results[-1])}")
 
-        if len(results) > hyper_params['advi_callback_iteration']:
+        if len(results) > hparams['advi_callback_iteration']:
 
-            previous_elbo = results[-(hyper_params['advi_callback_iteration']+1)] 
+            previous_elbo = results[-(hparams['advi_callback_iteration']+1)] 
 
         else: 
 
@@ -355,23 +339,23 @@ def advi_callback(params, t, g, results, delta_results, model, \
         print(f"Iteration {t+1} Δ median {delta_elbo_median}")
 
 
-        if  (   (delta_elbo_median <= hyper_params['advi_convergence_threshold'])|
-                (delta_elbo_mean <= hyper_params['advi_convergence_threshold'])
+        if  (   (delta_elbo_median <= hparams['advi_convergence_threshold'])|
+                (delta_elbo_mean <= hparams['advi_convergence_threshold'])
             ):
 
             print("Converged according to ADVI metrics for Median/Mean")
+            # break
+            # tn = time.time() - t0
 
-            tn = time.time() - t0
-
-            save_results_parameters (hyper_params = hyper_params,
-                                    params = params,
-                                    model = model,
-                                    uniq_name = hyper_params['uniq_name'] + str("_delta_convergence_"),
-                                    results = results,
-                                    time = tn/(t+1))
+            # save_results_parameters (hparams = hparams,
+            #                         params = params,
+            #                         model = model,
+            #                         uniq_name = hparams['uniq_name'] + str("_delta_convergence_"),
+            #                         results = results,
+            #                         time = tn/(t+1))
             exit()
 
-    checkpoint(params, model, hyper_params, results, t0 = t0, n = t)
+    # checkpoint(params, model, hparams, results, t0 = t0, n = t)
 
 def advi_optimizer(grad, x, callback, num_iters, step_size,\
                                  epsilon = 1e-16, tau = 1, alpha = 0.1):
@@ -398,22 +382,22 @@ def advi_optimizer(grad, x, callback, num_iters, step_size,\
 
     return unflatten(x)
 
-def get_step_size(hyper_params):
+def get_step_size(hparams):
 
-    if hyper_params['advi_use'] == True:
+    if hparams['advi_use'] == True:
 
-        return hyper_params['advi_step_size']
+        return hparams['advi_step_size']
 
-    return hyper_params['step_size']
+    return hparams['step_size']
 
 
-def get_optimizer(hyper_params):
+def get_optimizer(hparams):
 
-    if hyper_params['optimizer']=="adam":
+    if hparams['optimizer']=="adam":
       
         return optim.adam
 
-    elif hyper_params['optimizer']=="advi":
+    elif hparams['optimizer']=="advi":
 
         return advi_optimizer
 
@@ -421,9 +405,9 @@ def get_optimizer(hyper_params):
         raise NotImplementedError
 
 
-def get_callback(hyper_params):
+def get_callback(hparams):
 
-    if hyper_params['advi_use'] == 0:
+    if hparams['advi_use'] == 0:
     
         return callback
     
@@ -500,7 +484,7 @@ def open_pickled_files(filename, protocol = None):
 
 def print_dict(dic):
     
-    # hyper_params['step_size'] = hyper_params['step_size']/hyper_params['latent_dim']
+    # hparams['step_size'] = hparams['step_size']/hparams['latent_dim']
 
     # using a fixed sample budget--we need to adjust the no. of training samples based on M 
 

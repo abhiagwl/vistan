@@ -1,77 +1,167 @@
 import functools
 import autograd
-import vi_families as families
-import objectives 
-import utilities as utils
 
+import vistan.vi_families as vi_families
+import vistan.objectives as objectives
+import vistan.interface as interface
+import vistan.utilities as utils
 # from utilities.result_helper import (save_results_parameters)
 
-def update_hyper_params(model, hyper_params):
-    hyper_params['latent_dim'] = model.zlen
+def update_hparams(model, hparams):
+    hparams['latent_dim'] = model.zlen
 
-    hyper_params['num_copies_training'] = (hyper_params['per_iter_sample_budget']//
-                                hyper_params['M_training'])
+    hparams['num_copies_training'] = (hparams['per_iter_sample_budget']//
+                                hparams['M_training'])
+    hparams['step_size'] = hparams['step_size_base']/\
+                                (hparams['step_size_scale']**hparams['step_size_exp'])
 
-    hyper_params['step_size'] = hyper_params['step_size_base']/\
-                                (hyper_params['step_size_scale']**hyper_params['step_size_exp'])
-
-    hyper_params['step_size'] = hyper_params['step_size']/hyper_params['latent_dim']
-
-import interface
-
-def inference(code, data, model_name = None, method = None):
-    Model = interface.Model(code, data, model_name)
+    hparams['step_size'] = hparams['step_size']/hparams['latent_dim']
 
 
+def hyperparams(**kwargs):
+    hparams = {
+        "seed" : 11,
+        
+        ##################################################################
+        #  ADVI hparams
+        ##################################################################
+        "advi_use": False,
+        # The threshold parameters is used to diagnose convergence. If the 
+        # mean or median of the relative tolerance window is below the 
+        # threshold parameter, then the optimization is stopped.  
+        'advi_convergence_threshold' : 0.001, 
+
+        "advi_step_size": 1,
+        # the range used in the original paper. 
+        # Expand this range if the optimization diverges for all these choices
+        "advi_adapt_step_size_range": [100, 10, 1, 0.1, 0.01],
+        # Whether to adapt the step-size to the problem based on ADVI heuristic or not.
+        "advi_adapt_step_size": True,
+        # Number of iterations when adapting the step-size. ADVI optimizes each step-size 
+        # for these many iterations, looks at the final ELBO, and greedily chooses 
+        # the largest step-size with highest final ELBO  
+        'advi_adapt_step_size_num_iters': 20, 
+
+        # Number of iterations after which ELBO is calculated. This is coupled with the 
+        # size of the circular buffer to detect convergence. During final vi optimization,
+        # after each 'advi_callback_iteration', we evaluate ELBO, and append it to a buffer.
+        # Then convergence is detected based on the mean or median relative tolerance 
+        # over this circular buffer.
+
+        'advi_callback_iteration': 2,
+
+        ##################################################################
+        #  Optimization
+        ##################################################################
+        # step_size = step_size_base/(step_size_scale**step_size_exp)
+        # For comprehensive step-search, we optimize for different step_sizes,
+        # where the different step_sizes are generated using step_size_exp_range
+        "step_size_base" : 0.1,
+        "step_size_scale" : 4.0,
+        "step_size_exp" : 2, 
+        # "step_size_exp_range" : [2], # For comprehensive step_search we suggest [0,1,2,3,4]
+
+        "max_iters" : 20,
+
+        #  Choices for optimizers: "adam", "advi"
+        "optimizer":"adam" ,
+        #  M_training = 1 corresponds to regular VI -- ELBO is optimized
+        #  M_training > 1 corresponds to IW-training
+        "M_training"  : 2, 
+
+        #  Four choices for gradient estimator type: "Total-gradient", "STL", "DReG", "closed-form-entropy"
+        #  closed-form-entropy will work with distributions like Gaussians.
+        #  IWAEDREG defaults to STL when M_training = 1  
+        "grad_estimator_type": "DReG", 
+
+        # Fixing the sample budget. If the M_training = 10, then we make 10 copies of 
+        # IW-ELBO with M = 10 at each iteration.
+        "per_iter_sample_budget":100, 
+
+        "evaluation_fn" : "IWELBO",
+
+        ##################################################################
+        #  VI Families
+        ##################################################################
+
+        #  Choices for vi_vi_families: "rnvp", "gaussian", "gaussian - diagonal"
+        "vi_family" : "gaussian",
+
+        ##################################################################
+        #  RealNVP
+        ##################################################################
+
+        # of transformations : # of coupling transforms; each transforms includes two transitions
+        # of hidden layers : # of hidden layers within s-t block
+        # of hidden units : # of units in each hidden layer
+        # params_init_scale : lower value initializes to standard normal approximately
+
+        "rnvp_num_transformations" : 10,
+        "rnvp_num_hidden_units" : 32,
+        "rnvp_num_hidden_layers" : 2,
+        "rnvp_params_init_scale" : 0.01,
 
 
-def vi_on_stan_model(model, hyper_params):
+        ##################################################################
+        #  LI
+        ##################################################################
+        #  Do not use LI with real-NVP
+        "LI_use" : False,
+        "LI_max_iters":2000,
+        "LI_epsilon":1e-6,
+
+    }
+    
+    for k in kwargs.keys():
+        if k not in hparams.keys():
+            raise KeyError(f"{k} is not an expected hyperparam.")
+    hparams.update(kwargs)
+    return hparams
+
+
+
+def inference(code, data, model_name = None, verbose = True, hparams = hyperparams()):
+    model = interface.Model(code, data, model_name, verbose = verbose)
+
     print("Printing the Hyper-param configuration file...")
-    update_hyper_params(model, hyper_params)
-    print_dict(hyper_params)
+    update_hparams(model, hparams)
+    utils.print_dict(hparams)
 
-    var_dist = families.get_var_dist(hyper_params)
+    var_dist = vi_families.get_var_dist(hparams)
     init_params = var_dist.initial_params()
-    if hyper_params['LI_use'] == 1:
-        assert "gaussian" in hyper_params['vi_family'] 
-        init_params = utils.get_laplaces_init (log_p = model.logp, 
-                                        z_len = hyper_params['latent_dim'], 
-                                        num_epochs = hyper_params['LI_num_epochs'], 
-                                        ε = hyper_params['LI_epsilon'],
-                                        model_name = model_name)
 
-    log_p = functools.partial(utils.stan_model_batch_logp, log_p = model.logp, 
-                    z_len = hyper_params['latent_dim'])
+    if hparams['LI_use'] == 1:
+        # update the initial parameters to LI params
+        assert "gaussian" in hparams['vi_family'] 
+        init_params = utils.get_laplaces_init (log_p = model.log_prob, \
+                                    z_len = hparams['latent_dim'], \
+                                    num_epochs = hparams['LI_num_epochs'], \
+                                    ε = hparams['LI_epsilon'],\
+                                    model_name = model_name)
+
+    log_p = model.log_prob
     log_q = var_dist.log_prob
     sample_q = var_dist.sample
 
-    objective, eval_function = objectives.get_objective_eval_fn(log_p, 
-                                                    var_dist, 
-                                                    hyper_params)
-
+    objective, eval_function = objectives.get_objective_eval_fn(log_p, var_dist,\
+                                                                    hparams)
     objective_grad = autograd.grad(objective) 
 
-    optimizer = utils.get_optimizer(hyper_params)
-
-    callback = utils.get_callback(hyper_params)
-
+    optimizer = utils.get_optimizer(hparams)
+    callback = utils.get_callback(hparams)
+    print("Starting optimization......")
     results, optimized_params = utils.optimization_handler(objective_grad = objective_grad,
                                                     eval_function = eval_function,
                                                     init_params = init_params,
                                                     optimizer = optimizer,
-                                                    num_epochs = hyper_params['num_epochs'],
-                                                    step_size = utils.get_step_size(hyper_params),
+                                                    num_epochs = hparams['max_iters'],
+                                                    step_size = utils.get_step_size(hparams),
                                                     callback = functools.partial(callback,
                                                                     model = model, 
-                                                                    eval_function = eval_function, 
-                                                                    hyper_params = hyper_params),
-                                                    hyper_params = hyper_params,
-                                                    advi_use = hyper_params['advi_use'],
-                                                    adapt_step_size = hyper_params['advi_adapt_step_size'])
+                                                                    eval_function = eval_function),
+                                                    verbose = verbose,
+                                                    hparams = hparams)
+    posterior = vi_families.get_posterior(model = model, var_dist = var_dist,\
+                                                M_sampling = hparams['M_training'], params = optimized_params)
 
-    posterior = get_posterior(M_sampling = hyper_params['M_sampling'],
-                                log_p = log_p, 
-                                log_q = log_q,
-                                sample_q = sample_q)
-
-    return posterior
+    return posterior, model, results

@@ -1,5 +1,6 @@
 samples
 test-model.pkl
+models
 __pycache__
 data/*
 *test.py

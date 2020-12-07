@@ -19,7 +19,7 @@ pip install vistan
 
 ## Usage
 
-### Basic VI methods
+### Default VI
 
 ```
 code = """
@@ -40,11 +40,8 @@ data = {
     "switc": [1,0]
 }
 
-method = vistan.method(max_iter = 1000, family = "full-rank gaussian", 
-                        optimizer = "Adam")
 
-posterior, _ = vistan.infer(code = code, data = data, method = method,
-                         verbose = True, model_name = "test-model")
+posterior, model, trace = vistan.infer(code = code, data = data)
 
 samples = posterior.sample(1000)
 
@@ -62,16 +59,15 @@ plt.show()
 
 ### Flow-based VI
 ```
-method = vistan.method( max_iter = 1000, family = "rnvp",  
-                        M_training = 2, estimator = "DReG", optimizer = "Adam",
-                        rnvp_num_transformations = 10, 
-                        rnvp_num_hidden_units = 32, 
-                        rnvp_num_hidden_layers = 2, 
-                        rnvp_param_init_scale = 0.001
-                        )
+hyperparams = vistan.hyper_params(max_iter = 1000, family = "rnvp",  
+                                    M_training = 2, estimator = "DReG", optimizer = "adam",
+                                    rnvp_num_transformations = 10, 
+                                    rnvp_num_hidden_units = 32, 
+                                    rnvp_num_hidden_layers = 2, 
+                                    rnvp_param_init_scale = 0.001)
 
-posterior, _ = vistan.infer(code = code, data = data, 
-                                method = method, verbose = True)
+posterior, model, trace = vistan.infer(code = code, data = data, 
+                        hyperparams = hyperparams, verbose = True)
 
 samples = posterior.sample(1000)
 
@@ -89,20 +85,20 @@ plt.show()
 ### ADVI
 
 ```
-method = vistan.method( max_iter = 1000, family = "gaussian",  
-                        method = "advi", advi_adapt_eta = True,
+hyperparams = vistan.hyperparams( max_iter = 1000, family = "gaussian",  
+                        "advi_use" = True, advi_adapt_eta = True,
                         advi_adapt_eta_max_iters = 100)
 
-posterior, _ = vistan.infer(code = code, data = data, 
-                                method = method, verbose = True)
+posterior, model, trace = vistan.infer(code = code, data = data, 
+                                hyperparams = hyperparams, verbose = True)
 
 samples = posterior.sample(1000)
 
 plt.plot(samples["beta1"], label = "beta1")
 plt.plot(samples["beta2"], label = "beta2")
 plt.show()
-
-samples = posterior.sample(1000, M_sampling = 10)
+posterior.M_sampling = 10
+samples = posterior.sample(1000)
 plt.plot(samples["beta1"], label = "beta1")
 plt.plot(samples["beta2"], label = "beta2")
 plt.show()

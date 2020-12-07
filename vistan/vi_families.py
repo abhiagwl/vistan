@@ -2,7 +2,7 @@ import autograd.numpy as np
 import autograd.numpy.random as npr
 import functools 
 
-import utilities as utils
+import vistan.utilities as utils
 
 class Dist():
 
@@ -38,7 +38,7 @@ class Gaussian(Dist):
 
     def initial_params(self):
         
-        return [np.zeros(self.zlen,), S*np.eye(self.zlen)]
+        return [np.zeros(self.zlen,).astype(float), S*np.eye(self.zlen).astype(float)]
 
     def transform_params(self, params):
 
@@ -47,11 +47,13 @@ class Gaussian(Dist):
 
     def sample(self, params, sample_shape = (), **kwargs):
 
-        if isinstance(sample_shape, int) : sample_shape = (sample_shape,)
+        if isinstance(sample_shape, int) : 
+            sample_shape = (sample_shape,)
 
         mu, sig = self.get_params(params, **kwargs)
-        
-        samples = mu + np.dot(npr.randn(*sample_shape, self.zlen), sig.T)
+        shape = sample_shape+(self.zlen,)
+        ε  = npr.randn(*shape)
+        samples = mu + np.dot(ε, sig.T)
         
         return samples
 
@@ -87,7 +89,7 @@ class Diagonal(Gaussian):
 
     def initial_params(self):
         
-        return [np.zeros(self.zlen,), S*np.ones(self.zlen,)]
+        return [np.zeros(self.zlen,).astype(float), S*np.ones(self.zlen,).astype(float)]
 
     def transform_params(self, params):
         
@@ -269,12 +271,11 @@ def get_var_dist(hyper_params):
 
     elif hyper_params['vi_family'] == "rnvp":
 
-        var_dist = RealNVP  (   num_transformations = hyper_params['rnvp_num_transformations'], 
-                                num_hidden_units = hyper_params['rnvp_num_hidden_units'], 
-                                num_hidden_layers = hyper_params['rnvp_num_hidden_layers'], 
-                                params_init_scale = hyper_params['rnvp_params_init_scale'], 
-                                zlen = hyper_params['latent_dim']
-                            )     
+        var_dist = RealNVP(num_transformations = hyper_params['rnvp_num_transformations'], 
+                            num_hidden_units = hyper_params['rnvp_num_hidden_units'], 
+                            num_hidden_layers = hyper_params['rnvp_num_hidden_layers'], 
+                            params_init_scale = hyper_params['rnvp_params_init_scale'], 
+                            zlen = hyper_params['latent_dim'])     
     else: 
         raise NotImplementedError
     
@@ -283,63 +284,66 @@ def get_var_dist(hyper_params):
 
 class Posterior():
 
-    def __init__(self, M_sampling, log_p, log_q, sample_q, zlen):
+    def __init__(self, M_sampling, log_p, log_q, sample_q, zlen, params, \
+                                        dict_to_array, array_to_dict):
 
-        self.M_sampling = M_sampling,
-        self.log_p = log_p, 
-        self.log_q = log_q,
+        self.M_sampling = M_sampling
+        self.log_p = log_p 
+        self.log_q = log_q
         self.sample_q = sample_q
         self.zlen = zlen
+        self.params = params
+        self.dict_to_array = dict_to_array
+        self.array_to_dict = array_to_dict
                                          
 
-    def sample(self, shape, params):
+    def sample(self, num_samples, params = None, M_sampling = None):
+        if params is None: 
+            params = self.params
 
-        if isinstance(shape, int): 
+        if M_sampling is None : 
+            M_sampling = self.M_sampling
 
-            shape = (shape,) 
+        if  M_sampling== 1:
+            samples =  self.sample_q(params, num_samples)
 
-        if self.M_sampling == 1:
+        else: 
+            shape = (num_samples, M_sampling)
+            samples = self.sample_q(params, shape)
 
-            return self.sample_q(params, shape)
+            lp = self.log_p(samples)
+            lq = self.log_q(params, samples)
+            lR = lp - lq
 
-        orig_shape = shape
+            final_samples = []
+            for i in range(lR.shape[0]):
+                j = np.argmax(npr.multinomial(1, utils.softmax_matrix(lR[i])))
+                final_samples.append(samples[i,j,:])
 
-        shape = (utils.mul_iterable(shape), M_sampling)
-        
-        samples = self.sample_q(params, shape)
+            samples =  np.array(final_samples).reshape(num_samples, self.zlen)
+        return self.array_to_dict(samples)
 
-        lp = self.log_p(samples)
+    def log_prob(self, samples, params = None):
+        if params is None: 
+            params = self.params
 
-        lq = self.log_q(params, samples)
-
-        lR = lp - lq
-
-        final_samples = []
-
-        for i in range(lR.shape[0]):
-
-            j = np.argmax(npr.multinomial(1, softmax_matrix(lR[i])))
-            
-            final_samples.append(samples[i,j,:])
-
-        return np.array(final_samples).reshape(orig_shape + (self.zlen,))
-
-    def log_prob(self, samples, params):
 
         if self.M_sampling == 1:
-
+            if isinstance(samples, dict):
+                samples = self.dict_to_array(samples)
             return self.log_q(params, samples)
 
         else :
-
             raise NotImplementedError
 
 def get_posterior(model, var_dist, params, M_sampling):
 
-    q = Posterior(M_sampling, model.log_prob, var_dist.log_prob, var_dist.sample, var_dist.zlen)
-
-    q.sample = functools.partial(q.sample, params = params)
-
-    q.log_prob = functools.partial(q.log_prob, params = params)
-
+    q = Posterior(M_sampling = M_sampling, 
+                    log_p = model.log_prob, 
+                    log_q = var_dist.log_prob, 
+                    sample_q = var_dist.sample, 
+                    zlen = var_dist.zlen, 
+                    params = params, 
+                    dict_to_array = model.dict_to_array, 
+                    array_to_dict = model.array_to_dict)
     return q

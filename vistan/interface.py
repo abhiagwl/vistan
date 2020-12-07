@@ -1,18 +1,17 @@
 import pystan
 import warnings
-from hashlib
+import hashlib
 import pickle
 import re
 import os
 import collections
-from scipy
+import scipy
 import warnings
 import traceback
-from functools
+import functools
 import autograd
-import numpy as np
-
-import utilities as utils
+import autograd.numpy as np
+import vistan.utilities as utils
 
 ###########################################################################
 #  stuff related to loading stan models and data
@@ -101,21 +100,21 @@ def get_compiled_model(model_code, model_name=None, verbose = False, **kwargs):
 ###########################################################################
 
 class Model:
-    def __init__(self,model_code,data,model_name=None, verbose = True):
+    def __init__(self, model_code, data, model_name=None, verbose = True, debugging_verbose = False):
         extra_compile_args = ['-O1','-w','-Wno-deprecated'] # THIS IS SLOW! TURN OPTIMIZATION ON SOMEDAY!
 
         self.data = data
         self.model_name = model_name
         self.model_code = model_code
 
-        self.sm = get_compiled_model(model_code=self.model_code,extra_compile_args=extra_compile_args,\
+        self.sm = get_compiled_model(model_code=self.model_code, extra_compile_args=extra_compile_args,\
                 model_name=self.model_name, verbose = verbose)
         try:
-            with utils.suppress_stdout_stderr(verbose = verbose):
-                self.fit = self.sm.sampling(data=self.data, iter=10, chains=1, init=0)
+            with utils.suppress_stdout_stderr(verbose = debugging_verbose):
+                self.fit = self.sm.sampling(data=self.data, iter=100, chains=1, init=0)
         except:
             print('Could not init model for ' + model_code)
-            print('Try turning verbose on for better debugging.')
+            print('Try turning debugging_verbose on for better debugging.')
             raise 
 
         self.keys = self.fit.unconstrained_param_names()
@@ -126,6 +125,7 @@ class Model:
 
     def sampling(self,**kwargs):
         try: 
+            assert kwargs.get('iter',2) >=2
             warnings.simplefilter('ignore')
             self.fit = self.sm.sampling(data=self.data,**kwargs)
             rez = self.unconstrain(self.fit.extract())
@@ -191,6 +191,14 @@ class Model:
 
         return collections.OrderedDict({k:z[:, i] for i,k in enumerate(self.keys)})
 
+    def dict_to_array(self, z):
+        if not isinstance(z, dict):
+            return z
+
+        s = np.array([z[k]  for k in z.keys()])
+        assert s.shape[-1] == self.zlen
+        return s
+
     def unconstrain(self, z):
         N = self.get_n_samples(z)
         if not isinstance(z, (dict,)):
@@ -201,9 +209,14 @@ class Model:
 
 
     def log_prob(self, z):
-        return  functools.partial(stan_model_batch_logp, log_p = self.logp, 
-                    z_len = self.zlen)
+        """
+        A simple function to get batched sample evaluation for models.
+        """
+        orig_samples_shape = z.shape
+        assert(orig_samples_shape[-1] == self.zlen)
+        lp = np.array([self.logp(z_) for z_ in z.reshape(-1, self.zlen)])
 
+        return lp.reshape(orig_samples_shape[:-1]) 
 
     @autograd.primitive
     def logp(self,z):
