@@ -19,7 +19,7 @@ pip install vistan
 
 ## Usage
 
-### Default VI
+### Meanfield VI
 
 ```
 code = """
@@ -39,9 +39,8 @@ data = {
     "N" : 2, 
     "switc": [1,0]
 }
-
-
-posterior, model, trace = vistan.infer(code = code, data = data)
+# runs by default
+posterior, model, results = vistan.infer(code = code, data = data)
 
 samples = posterior.sample(1000)
 
@@ -49,24 +48,13 @@ plt.plot(samples["beta1"], label = "beta1")
 plt.plot(samples["beta2"], label = "beta2")
 plt.show()
 
-samples = posterior.sample(1000, M_sampling = 10)
-plt.plot(samples["beta1"], label = "beta1")
-plt.plot(samples["beta2"], label = "beta2")
-plt.show()
-
 ```
 
-
-### Flow-based VI
+### Gaussian VI 
 ```
-hyperparams = vistan.hyper_params(max_iter = 1000, family = "rnvp",  
-                                    M_training = 2, estimator = "DReG", optimizer = "adam",
-                                    rnvp_num_transformations = 10, 
-                                    rnvp_num_hidden_units = 32, 
-                                    rnvp_num_hidden_layers = 2, 
-                                    rnvp_param_init_scale = 0.001)
+hyperparams = vistan.hyper_params(method = 'gaussian')
 
-posterior, model, trace = vistan.infer(code = code, data = data, 
+posterior, model, results = vistan.infer(code = code, data = data, 
                         hyperparams = hyperparams, verbose = True)
 
 samples = posterior.sample(1000)
@@ -75,7 +63,17 @@ plt.plot(samples["beta1"], label = "beta1")
 plt.plot(samples["beta2"], label = "beta2")
 plt.show()
 
-samples = posterior.sample(1000, M_sampling = 10)
+```
+
+### Flow-based VI
+```
+hyperparams = vistan.hyper_params(method = 'flows')
+
+posterior, model, results = vistan.infer(code = code, data = data, 
+                        hyperparams = hyperparams, verbose = True)
+
+samples = posterior.sample(1000)
+
 plt.plot(samples["beta1"], label = "beta1")
 plt.plot(samples["beta2"], label = "beta2")
 plt.show()
@@ -85,11 +83,9 @@ plt.show()
 ### ADVI
 
 ```
-hyperparams = vistan.hyperparams( max_iter = 1000, family = "gaussian",  
-                        "advi_use" = True, advi_adapt_eta = True,
-                        advi_adapt_eta_max_iters = 100)
+hyperparams = vistan.hyperparams(method = 'advi')
 
-posterior, model, trace = vistan.infer(code = code, data = data, 
+posterior, model, results = vistan.infer(code = code, data = data, 
                                 hyperparams = hyperparams, verbose = True)
 
 samples = posterior.sample(1000)
@@ -97,8 +93,23 @@ samples = posterior.sample(1000)
 plt.plot(samples["beta1"], label = "beta1")
 plt.plot(samples["beta2"], label = "beta2")
 plt.show()
-posterior.M_sampling = 10
-samples = posterior.sample(1000)
+
+```
+
+### Custom
+
+```
+hyperparams = vistan.hyperparams(   method = 'custom', 
+                                    vi_family = "gaussian",
+                                    M_training = 10,
+                                    grad_estimator = "DReG",
+                                    LI = True)
+
+posterior, model, results = vistan.infer(code = code, data = data, 
+                                hyperparams = hyperparams, verbose = True)
+
+samples = posterior.sample(1000, M_sampling = 20)
+
 plt.plot(samples["beta1"], label = "beta1")
 plt.plot(samples["beta2"], label = "beta2")
 plt.show()

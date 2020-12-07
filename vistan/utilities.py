@@ -7,6 +7,7 @@ import collections
 import traceback 
 import hashlib
 import re
+import scipy
 import autograd 
 import autograd.numpy as np 
 import autograd.numpy.random as npr
@@ -15,6 +16,88 @@ import autograd.misc.optimizers as optim
 ########################################################################################
 ######################### Generic Inference Utilities ###############################
 ########################################################################################
+def update_hparams(model, hparams):
+    hparams['latent_dim'] = model.zlen
+
+    update_hparams_method(hparams)
+
+    hparams['num_copies_training'] = (hparams['per_iter_sample_budget']//
+                                hparams['M_training'])
+    # If advi is not used, then we follow the the step-size scaling 
+    # scheme of Agrawal et al. 2020 
+
+    hparams['step_size'] = hparams['step_size_base']/\
+                                (hparams['step_size_scale']**hparams['step_size_exp'])
+
+    hparams['step_size'] = hparams['step_size']/hparams['latent_dim']
+
+def update_hparams_method(hparams):
+    if hparams['method'] == 'advi':
+        hparams.update({
+                'advi_use' : True,
+                'advi_adapt_step_size' : True,
+                'advi_adapt_step_size_range' : [100, 10, 1, 0.1, 0.01],
+                'advi_step_size' : 1,
+                'vi_family' : "gaussian",
+                'grad_estimator' : "closed-form-entropy",
+                'optimizer' : 'advi',
+                'advi_convergence_threshold' : 0.001,
+                'advi_adapt_step_size_num_iters' : 100,
+                'M_training' : 1,
+                'LI' : False,
+                'per_iter_sample_budget':100,
+
+            })
+
+    elif hparams['method'] == 'gaussian':
+        hparams.update({
+                'advi_use' : False,
+                'vi_family' : "gaussian",
+                'grad_estimator' : "DReG",
+                'optimizer' : 'adam',
+                'M_training' : 10,
+                'LI' : False,
+                'step_size_exp' : 2,
+                'per_iter_sample_budget':100,
+
+            })
+
+    elif hparams['method'] == 'meanfield':
+        hparams.update({
+                'advi_use' : False,
+                'vi_family' : "diagonal",
+                'grad_estimator' : "DReG",
+                'optimizer' : 'adam',
+                'M_training' : 1,
+                'LI' : False,
+                'step_size_exp' : 2,
+                'per_iter_sample_budget':100,
+
+            })
+
+    elif hparams['method'] == 'flows':
+        hparams.update({
+                'advi_use' : False,
+                'vi_family' : "rnvp",
+                'grad_estimator' : "DReG",
+                'optimizer' : 'adam',
+                'M_training' : 2,
+                'step_size_exp' : 2,
+                'LI' : False,
+                'per_iter_sample_budget':100,
+
+            })
+
+
+    elif hparams['method'] == 'custom':
+        pass
+
+    else:
+        raise NotImplementedError(f"Method not unsupported. Expected one\
+                 of ['advi', 'flows', 'gaussian', 'meanfield', 'custom'], \
+                 but got {hparams['method']}")
+
+
 
 S = np.log(np.exp(1) - 1)
 
@@ -67,19 +150,19 @@ def get_laplaces_init_params(log_p, z_len, num_epochs, ε = 1e-4):
 
     # Initialize to Laplace's method 
     # Conduct MAP inference using BFGS method
-    # Set μ = z_MAP
+    # Set mu = z_MAP
     # Use finite difference to calculate Hessian matrix
-    # Set L = cholesky(inv(-Hessian(μ)))
+    # Set L = cholesky(inv(-Hessian(mu)))
 
     z_0 = npr.rand(z_len)
     val_and_grad = autograd.value_and_grad(lambda z: -log_p(z)) # using minimize to maximize
 
-    rez = minimize(val_and_grad, z_0, \
+    rez = scipy.optimize.minimize(val_and_grad, z_0, \
                     method='BFGS', jac=True,\
                     options={'maxiter':num_epochs, 'disp':True})
 
-    μ = rez.x
-    H = Hessian_finite_differences(z = μ, grad_f = autograd.grad(lambda z : log_p(z)),\
+    mu = rez.x
+    H = Hessian_finite_differences(z = mu, grad_f = autograd.grad(lambda z : log_p(z)),\
                                     ε = ε)
 
     try :
@@ -155,23 +238,24 @@ def save_laplaces_init(params,  model_name, model_code):
 
 
 
-def advi_baseline_asserts(hparams):
+def advi_asserts(hparams):
 
     assert(hparams['advi_use'] == 1)
     assert(hparams['vi_family'] == 'gaussian')
     assert(hparams['M_training'] == 1)
-    assert(hparams['LI_use'] == 0)
-    assert(hparams['grad_estimator_type'] == 'closed-form-entropy')
+    assert(hparams['LI'] == 0)
+    assert(hparams['grad_estimator'] == 'closed-form-entropy')
+    assert(hparams['optimizer'] == 'advi')
 
 
 def get_callback_arg_dict(hparams):
 
     if hparams['advi_use'] == True:
 
-        buffer_len = np.int(max(0.01*hparams['num_epochs']/hparams['advi_callback_iteration'] , 2))
+        buffer_len = np.int(max(0.01*hparams['max_iters']/hparams['advi_callback_iteration'] , 2))
         delta_results = collections.deque(maxlen = buffer_len)
 
-        return {"delta_results" : delta_results}
+        return {"delta_results" : delta_results, "hparams" : hparams}
 
     else:
 
@@ -180,8 +264,8 @@ def get_callback_arg_dict(hparams):
 def run_optimization(objective_grad, init_params, step_size,\
              num_epochs, callback, optimizer):
 
-    optimized_params = optimizer(objective_grad, 
-                                init_params, 
+    optimized_params = optimizer(grad = objective_grad, 
+                                x0 = init_params, 
                                 step_size = step_size,
                                 num_iters = num_epochs, 
                                 callback = callback)
@@ -214,12 +298,12 @@ def get_adapted_step_size(objective_grad, eval_function, init_params, \
         print("############################################ ")
 
         try: 
-            optimized_params = run_optimization(objective_grad, 
-                                                init_params, 
-                                                step_size, 
-                                                hparams['advi_adapt_step_size_num_iters'], 
-                                                None, 
-                                                advi_optimizer)
+            optimized_params = run_optimization(objective_grad = objective_grad, 
+                                                init_params = init_params, 
+                                                step_size = step_size, 
+                                                num_epochs = hparams['advi_adapt_step_size_num_iters'], 
+                                                callback = None, 
+                                                optimizer = advi_optimizer)
 
         except Exception:
             print(f"Error occured during the optimization with step-size {step_size}...")
@@ -272,9 +356,12 @@ def optimization_handler(objective_grad, eval_function, init_params, optimizer,\
 
     if  (hparams['advi_adapt_step_size']) & (hparams['advi_use']):
 
-        step_size = get_adapted_step_size(objective_grad, eval_function,\
-                                            init_params, optimizer, num_epochs, 
-                                            hparams)
+        step_size = get_adapted_step_size(objective_grad = objective_grad, 
+                                            eval_function = eval_function,
+                                            init_params = init_params,
+                                            optimizer = optimizer, 
+                                            num_epochs = num_epochs, 
+                                            hparams = hparams)
 
     results = []
     t0 = time.time()
@@ -370,22 +457,27 @@ def advi_callback(params, t, g, results, delta_results, model, \
             #                         uniq_name = hparams['uniq_name'] + str("_delta_convergence_"),
             #                         results = results,
             #                         time = tn/(t+1))
-            exit()
+            # exit()
+            return True
+    return False
 
     # checkpoint(params, model, hparams, results, t0 = t0, n = t)
 
-def advi_optimizer(grad, x, callback, num_iters, step_size,\
+def advi_optimizer(grad, x0, callback, num_iters, step_size,\
                                  epsilon = 1e-16, tau = 1, alpha = 0.1):
 
-    x, unflatten = autograd.misc.flatten(x)
+    x, unflatten = autograd.misc.flatten(x0)
 
     s = np.zeros(len(x))
 
     for i in range(num_iters):
 
-        g = autograd.misc.flatten(autograd.grad(unflatten(x), i))[0]
+        g = autograd.misc.flatten(grad(unflatten(x), i))[0]
 
-        if callback: callback(unflatten(x), i, unflatten(g))
+        if callback: 
+            converged = callback(unflatten(x), i, unflatten(g))
+            if converged :
+                return unflatten(x)
 
         if i==0:
 
@@ -409,6 +501,7 @@ def get_step_size(hparams):
 
 
 def get_optimizer(hparams):
+
 
     if hparams['optimizer']=="adam":
       

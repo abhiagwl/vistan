@@ -57,16 +57,16 @@ def IWELBO_DREG(params, log_p, log_q, sample_q,\
 
 def choose_objective_eval_fn(hyper_params):
 
-    if hyper_params['grad_estimator_type'] == "Total-gradient":
+    if hyper_params['grad_estimator'] == "Total-gradient":
         objective = IWELBO 
 
-    elif hyper_params['grad_estimator_type'] == "DReG":
+    elif hyper_params['grad_estimator'] == "DReG":
         objective = IWELBO_DREG  
 
-    elif hyper_params['grad_estimator_type'] == "STL":
+    elif hyper_params['grad_estimator'] == "STL":
         objective = IWELBO_STL  
 
-    elif hyper_params['grad_estimator_type'] == "closed-form-entropy":
+    elif hyper_params['grad_estimator'] == "closed-form-entropy":
         assert (hyper_params['M_training'] == 1)
         assert ("gaussian" in hyper_params['vi_family'])
         objective = ELBO_cf_entropy  
@@ -77,7 +77,7 @@ def choose_objective_eval_fn(hyper_params):
         evaluation_fn = IWELBO
 
     elif hyper_params['evaluation_fn'] == "ELBO-cfe":
-        evaluation_fn = ELBO_cf_entropy()
+        evaluation_fn = ELBO_cf_entropy
 
     else: 
         raise ValueError
@@ -101,7 +101,7 @@ def modify_objective_eval_fn(objective, evaluation_fn,\
                                 M_training = hyper_params['M_training'], 
                                 num_copies_training = hyper_params['num_copies_training'])
 
-    if hyper_params['grad_estimator_type'] == "closed-form-entropy":
+    if hyper_params['grad_estimator'] == "closed-form-entropy":
         m_objective = functools.partial(m_objective, entropy_q = var_dist.entropy)
 
     if hyper_params['evaluation_fn'] == "ELBO-cfe":

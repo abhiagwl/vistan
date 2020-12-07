@@ -8,21 +8,20 @@ import vistan.interface as interface
 import vistan.utilities as utils
 # from utilities.result_helper import (save_results_parameters)
 
-def update_hparams(model, hparams):
-    hparams['latent_dim'] = model.zlen
-
-    hparams['num_copies_training'] = (hparams['per_iter_sample_budget']//
-                                hparams['M_training'])
-    hparams['step_size'] = hparams['step_size_base']/\
-                                (hparams['step_size_scale']**hparams['step_size_exp'])
-
-    hparams['step_size'] = hparams['step_size']/hparams['latent_dim']
-
 
 def hyperparams(**kwargs):
     hparams = {
         "seed" : 11,
         
+        ##################################################################
+        #  Methods 
+        ##################################################################
+        # choosing a method gives your some default hyper-parameter settings
+        # choose from : ['advi, 'gaussian, 'flows', 'meanfield', 'custom']
+        # choosing a method will change the values for other relevant 
+        # hyper-parameters; however, choosing 'custom', will leave them as is.
+        "method" : "meanfield",
+
         ##################################################################
         #  ADVI hparams
         ##################################################################
@@ -32,10 +31,10 @@ def hyperparams(**kwargs):
         # threshold parameter, then the optimization is stopped.  
         'advi_convergence_threshold' : 0.001, 
 
-        "advi_step_size": 1,
+        "advi_step_size": 0.01,
         # the range used in the original paper. 
         # Expand this range if the optimization diverges for all these choices
-        "advi_adapt_step_size_range": [100, 10, 1, 0.1, 0.01],
+        "advi_adapt_step_size_range": [0.1, 0.01],
         # Whether to adapt the step-size to the problem based on ADVI heuristic or not.
         "advi_adapt_step_size": True,
         # Number of iterations when adapting the step-size. ADVI optimizes each step-size 
@@ -73,7 +72,7 @@ def hyperparams(**kwargs):
         #  Four choices for gradient estimator type: "Total-gradient", "STL", "DReG", "closed-form-entropy"
         #  closed-form-entropy will work with distributions like Gaussians.
         #  IWAEDREG defaults to STL when M_training = 1  
-        "grad_estimator_type": "DReG", 
+        "grad_estimator": "DReG", 
 
         # Fixing the sample budget. If the M_training = 10, then we make 10 copies of 
         # IW-ELBO with M = 10 at each iteration.
@@ -85,7 +84,7 @@ def hyperparams(**kwargs):
         #  VI Families
         ##################################################################
 
-        #  Choices for vi_vi_families: "rnvp", "gaussian", "gaussian - diagonal"
+        #  Choices for vi_vi_families: "rnvp", "gaussian", "diagonal"
         "vi_family" : "gaussian",
 
         ##################################################################
@@ -107,7 +106,7 @@ def hyperparams(**kwargs):
         #  LI
         ##################################################################
         #  Do not use LI with real-NVP
-        "LI_use" : False,
+        "LI" : False,
         "LI_max_iters":2000,
         "LI_epsilon":1e-6,
 
@@ -117,31 +116,36 @@ def hyperparams(**kwargs):
         if k not in hparams.keys():
             raise KeyError(f"{k} is not an expected hyperparam.")
     hparams.update(kwargs)
+
     return hparams
 
 
-
 def inference(code, data, model_name = None, verbose = True, hparams = hyperparams()):
+    npr.seed(hparams['seed'])
+
+
     # Stan is particular about model names
     if model_name is not None: 
         model_name = model_name.replace("-", "_")
-    npr.seed(hparams['seed'])
 
     model = interface.Model(code, data, model_name, verbose = verbose)
 
+    utils.update_hparams(model, hparams)
     print("Printing the Hyper-param configuration file...")
-    update_hparams(model, hparams)
     utils.print_dict(hparams)
+
+    if hparams['advi_use'] == True:
+        utils.advi_asserts(hparams)
 
     var_dist = vi_families.get_var_dist(hparams)
     init_params = var_dist.initial_params()
 
-    if hparams['LI_use'] == 1:
+    if hparams['LI'] == 1:
         # update the initial parameters to LI params
         assert "gaussian" in hparams['vi_family'] 
         init_params = utils.get_laplaces_init (log_p = model.log_prob, \
                                     z_len = hparams['latent_dim'], \
-                                    num_epochs = hparams['LI_num_epochs'], \
+                                    num_epochs = hparams['LI_max_iters'], \
                                     ε = hparams['LI_epsilon'],\
                                     model_name = model_name,
                                     model_code = code)

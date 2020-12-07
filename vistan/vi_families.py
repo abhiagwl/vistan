@@ -19,15 +19,15 @@ class Dist():
         
         raise NotImplementedError
 
-    def get_params(self, params, **kwargs):
+    def get_params(self, params):
 
         return self.transform_params(params)
 
-    def sample(self, params, sample_shape, **kwargs):
+    def sample(self, params, sample_shape):
 
         raise NotImplementedError
 
-    def log_prob(self, params, samples, **kwargs):
+    def log_prob(self, params, samples):
 
          raise NotImplementedError
 
@@ -46,21 +46,21 @@ class Gaussian(Dist):
         return params[0], utils.pos_tril(params[1])
 
 
-    def sample(self, params, sample_shape = (), **kwargs):
+    def sample(self, params, sample_shape = ()):
 
         if isinstance(sample_shape, int) : 
             sample_shape = (sample_shape,)
 
-        mu, sig = self.get_params(params, **kwargs)
+        mu, sig = self.get_params(params)
         shape = sample_shape+(self.zlen,)
         ε  = npr.randn(*shape)
         samples = mu + np.dot(ε, sig.T)
         
         return samples
 
-    def log_prob(self, params, samples, **kwargs):
+    def log_prob(self, params, samples):
 
-        mu, sig = self.get_params(params, **kwargs)
+        mu, sig = self.get_params(params)
 
         Λ = np.linalg.inv(sig).T
 
@@ -94,7 +94,7 @@ class Diagonal(Gaussian):
 
     def transform_params(self, params):
         
-        return params[0], np.diag(pos_diag(params[1]))
+        return params[0], np.diag(utils.pos_diag(params[1]))
 
 
 class Flows(Dist):
@@ -109,30 +109,30 @@ class Flows(Dist):
 
         return params
 
-    def forward_transform(self, params, z, **kwargs):
+    def forward_transform(self, params, z):
 
         raise NotImplementedError
 
-    def inverse_transform(self, params, x, **kwargs):
+    def inverse_transform(self, params, x):
 
         raise NotImplementedError
 
-    def sample(self, params, sample_shape, **kwargs):
+    def sample(self, params, sample_shape):
         
 
-        params = self.get_params(params, **kwargs)
+        params = self.get_params(params)
         
         z_o = self.base_dist.sample(self.base_dist_params, sample_shape)
 
-        samples, neg_log_det_J = self.forward_transform(params, z_o, **kwargs)
+        samples, neg_log_det_J = self.forward_transform(params, z_o)
 
         return samples
 
-    def log_prob(self, params, samples, **kwargs):
+    def log_prob(self, params, samples):
 
-        params = self.get_params(params, **kwargs)
+        params = self.get_params(params)
 
-        z_o, neg_log_det_J = self.inverse_transform(params, samples, **kwargs)
+        z_o, neg_log_det_J = self.inverse_transform(params, samples)
 
         lq = self.base_dist.log_prob(self.base_dist_params, z_o)
 
@@ -266,7 +266,7 @@ def get_var_dist(hyper_params):
 
         var_dist = Gaussian(hyper_params['latent_dim'])
 
-    elif hyper_params['vi_family'] == "gaussian - diagonal":
+    elif hyper_params['vi_family'] == "diagonal":
 
         var_dist = Diagonal(hyper_params['latent_dim'])
 
