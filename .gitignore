@@ -12,3 +12,4 @@ setup.py
 *.egg-info
 build
 dist
+deploy.sh

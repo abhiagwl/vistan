@@ -120,7 +120,7 @@ def hyperparams(**kwargs):
     return hparams
 
 
-def inference(code, data, model_name = None, verbose = True, hparams = hyperparams()):
+def inference(code, data, model_name = "test-model", verbose = True, hparams = hyperparams()):
     npr.seed(hparams['seed'])
 
 

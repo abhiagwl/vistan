@@ -23,29 +23,34 @@ pip install vistan
 
 ```
 code = """
-    data {
-        int<lower=0> N; 
-        int<lower=0,upper=1> switc[N];
-    }
-    parameters {
-         real<lower=0,upper=1> beta1;
-         real<lower=2,upper=2.4> beta2;
-    } 
-    model {
-        switc ~ bernoulli(beta1);
-    }
-    """
-data = {
-    "N" : 2, 
-    "switc": [1,0]
+data {
+  int<lower=0> J;         // number of schools
+  real y[J];              // estimated treatment effects
+  real<lower=0> sigma[J]; // standard error of effect estimates
 }
-# runs by default
-posterior, model, results = vistan.infer(code = code, data = data)
+parameters {
+  real mu;                // population treatment effect
+  real<lower=0> tau;      // standard deviation in treatment effects
+  vector[J] eta;          // unscaled deviation from mu by school
+}
+transformed parameters {
+  vector[J] theta = mu + tau * eta;        // school treatment effects
+}
+model {
+  target += normal_lpdf(eta | 0, 1);       // prior log-density
+  target += normal_lpdf(y | theta, sigma); // log-likelihood
+}
+"""
+
+data = {"J": 8,
+                "y": [28,  8, -3,  7, -1,  1, 18, 12],
+                "sigma": [15, 10, 16, 11,  9, 11, 10, 18]}
+
+posterior, model, results = vistan.infer(code = code, data = data) # runs Meanfield VI by default
 
 samples = posterior.sample(1000)
-
-plt.plot(samples["beta1"], label = "beta1")
-plt.plot(samples["beta2"], label = "beta2")
+for i in range(samples['eta'].shape[1]):
+    plt.plot(samples["eta"][:,i], label = "eta[i]")
 plt.show()
 
 ```
@@ -58,9 +63,8 @@ posterior, model, results = vistan.infer(code = code, data = data,
                         hyperparams = hyperparams, verbose = True)
 
 samples = posterior.sample(1000)
-
-plt.plot(samples["beta1"], label = "beta1")
-plt.plot(samples["beta2"], label = "beta2")
+for i in range(samples['eta'].shape[1]):
+    plt.plot(samples["eta"][:,i], label = "eta[i]")
 plt.show()
 
 ```
@@ -73,9 +77,8 @@ posterior, model, results = vistan.infer(code = code, data = data,
                         hyperparams = hyperparams, verbose = True)
 
 samples = posterior.sample(1000)
-
-plt.plot(samples["beta1"], label = "beta1")
-plt.plot(samples["beta2"], label = "beta2")
+for i in range(samples['eta'].shape[1]):
+    plt.plot(samples["eta"][:,i], label = "eta[i]")
 plt.show()
 
 ```
@@ -89,9 +92,8 @@ posterior, model, results = vistan.infer(code = code, data = data,
                                 hyperparams = hyperparams, verbose = True)
 
 samples = posterior.sample(1000)
-
-plt.plot(samples["beta1"], label = "beta1")
-plt.plot(samples["beta2"], label = "beta2")
+for i in range(samples['eta'].shape[1]):
+    plt.plot(samples["eta"][:,i], label = "eta[i]")
 plt.show()
 
 ```
@@ -108,10 +110,9 @@ hyperparams = vistan.hyperparams(   method = 'custom',
 posterior, model, results = vistan.infer(code = code, data = data, 
                                 hyperparams = hyperparams, verbose = True)
 
-samples = posterior.sample(1000, M_sampling = 20)
-
-plt.plot(samples["beta1"], label = "beta1")
-plt.plot(samples["beta2"], label = "beta2")
+samples = posterior.sample(1000)
+for i in range(samples['eta'].shape[1]):
+    plt.plot(samples["eta"][:,i], label = "eta[i]")
 plt.show()
 
 ```
