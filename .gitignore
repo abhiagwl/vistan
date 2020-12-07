@@ -8,3 +8,7 @@ data/*
 *scratchpad.py
 *vi_on_stan.py
 README.html
+setup.py
+*.egg-info
+build
+dist
