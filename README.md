@@ -21,7 +21,10 @@ pip install vistan
 
 ### Meanfield VI
 
-```
+```python
+import vistan 
+import matplotlib.pyplot as plt
+
 code = """
 data {
   int<lower=0> J;         // number of schools
@@ -43,10 +46,10 @@ model {
 """
 
 data = {"J": 8,
-                "y": [28,  8, -3,  7, -1,  1, 18, 12],
-                "sigma": [15, 10, 16, 11,  9, 11, 10, 18]}
+        "y": [28,  8, -3,  7, -1,  1, 18, 12],
+        "sigma": [15, 10, 16, 11,  9, 11, 10, 18]}
 
-posterior, model, results = vistan.infer(code = code, data = data) # runs Meanfield VI by default
+posterior, model, results = vistan.inference(code = code, data = data) # runs Meanfield VI by default
 
 samples = posterior.sample(1000)
 for i in range(samples['eta'].shape[1]):
@@ -56,11 +59,11 @@ plt.show()
 ```
 
 ### Gaussian VI 
-```
-hyperparams = vistan.hyper_params(method = 'gaussian')
+```python
+hyperparams = vistan.hyperparams(method = 'gaussian')
 
-posterior, model, results = vistan.infer(code = code, data = data, 
-                        hyperparams = hyperparams, verbose = True)
+posterior, model, results = vistan.inference(code = code, data = data, 
+                        hparams = hyperparams, verbose = True)
 
 samples = posterior.sample(1000)
 for i in range(samples['eta'].shape[1]):
@@ -70,11 +73,11 @@ plt.show()
 ```
 
 ### Flow-based VI
-```
-hyperparams = vistan.hyper_params(method = 'flows')
+```python
+hyperparams = vistan.hyperparams(method = 'flows')
 
-posterior, model, results = vistan.infer(code = code, data = data, 
-                        hyperparams = hyperparams, verbose = True)
+posterior, model, results = vistan.inference(code = code, data = data, 
+                        hparams = hyperparams, verbose = True)
 
 samples = posterior.sample(1000)
 for i in range(samples['eta'].shape[1]):
@@ -85,11 +88,11 @@ plt.show()
 
 ### ADVI
 
-```
+```python
 hyperparams = vistan.hyperparams(method = 'advi')
 
-posterior, model, results = vistan.infer(code = code, data = data, 
-                                hyperparams = hyperparams, verbose = True)
+posterior, model, results = vistan.inference(code = code, data = data, 
+                                hparams = hyperparams, verbose = True)
 
 samples = posterior.sample(1000)
 for i in range(samples['eta'].shape[1]):
@@ -100,15 +103,15 @@ plt.show()
 
 ### Custom
 
-```
+```python
 hyperparams = vistan.hyperparams(   method = 'custom', 
                                     vi_family = "gaussian",
                                     M_training = 10,
                                     grad_estimator = "DReG",
                                     LI = True)
 
-posterior, model, results = vistan.infer(code = code, data = data, 
-                                hyperparams = hyperparams, verbose = True)
+posterior, model, results = vistan.inference(code = code, data = data, 
+                                hparams = hyperparams, verbose = True)
 
 samples = posterior.sample(1000)
 for i in range(samples['eta'].shape[1]):
