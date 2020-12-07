@@ -5,6 +5,8 @@ import functools
 import operator
 import collections
 import traceback 
+import hashlib
+import re
 import autograd 
 import autograd.numpy as np 
 import autograd.numpy.random as npr
@@ -92,43 +94,58 @@ def get_laplaces_init_params(log_p, z_len, num_epochs, ε = 1e-4):
 
     return mu, L
 
+def standardize_code(text):
+    # text = re.sub('//.*?\n|/\*.*?\*/', '', text, flags=re.S)
+    text = re.sub(r'//.*?\n|/\*.*?\*/', '', text, flags=re.S)
+    pat = re.compile(r'\s+')
+    text = pat.sub('', text)
+    return text
 
-def get_laplaces_init(log_p, z_len, num_epochs, ε, model_name):
-    if check_laplaces_init_saved(model_name):
-        return load_saved_laplaces_init(model_name)
+
+def get_cache_fname(model_name, model_code):
+    model_code_stripped = standardize_code(model_code)
+    code_hash = hashlib.md5(model_code_stripped.encode('ascii')).hexdigest()
+    if model_name is None:
+        return code_hash
+    else:
+        return model_name + "_"+ code_hash
+
+def get_laplaces_init(log_p, z_len, num_epochs, ε, model_name, model_code):
+    if check_laplaces_init_saved(model_name, model_code):
+        return load_saved_laplaces_init(model_name, model_code)
     else:
         LI_params = get_laplaces_init_params(log_p, z_len, num_epochs, ε)
-        save_laplaces_init(LI_params, model_name)
+        save_laplaces_init(LI_params, model_name, model_code)
         return LI_params
 
-def laplaces_init_dir(model_name):
-    return 'data/laplaces_init/' + model_name + "/"
+def laplaces_init_dir():
+    return 'data/laplaces_init/'
 
-def laplaces_init_file(dir_name):
-    return dir_name + "params.pkl"
+def laplaces_init_file(dir_name, model_name, model_code):
+    return dir_name + get_cache_fname(model_name, model_code) +"_LI_params.pkl"
 
-def check_laplaces_init_saved(model_name):
+def check_laplaces_init_saved(model_name, model_code):
     """
     Check if stored Laplaces Initialization parameters  are available.
     """    
-    file_name = laplaces_init_file(laplaces_init_dir(model_name))
+    file_name = laplaces_init_file(laplaces_init_dir(), model_name, model_code)
     if os.path.exists(file_name):
         return True
     return False
 
-def load_saved_laplaces_init(model_name):
-    file_name = laplaces_init_file(laplaces_init_dir(model_name))
+def load_saved_laplaces_init(model_name, model_code):
+    file_name = laplaces_init_file(laplaces_init_dir(), model_name, model_code)
     if not os.path.exists(file_name):
         raise ValueError
     return open_pickled_files(file_name)
 
     
 
-def save_laplaces_init(params,  model_name):  
-    dir_name = laplaces_init_dir(model_name)
+def save_laplaces_init(params,  model_name, model_code):  
+    dir_name = laplaces_init_dir()
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
-    dump_pickled_files(filename = laplaces_init_file(dir_name = dir_name),
+    dump_pickled_files(filename = laplaces_init_file(dir_name, model_name, model_code),
         objects = params)
 
 

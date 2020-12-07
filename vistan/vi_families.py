@@ -1,6 +1,7 @@
 import autograd.numpy as np
 import autograd.numpy.random as npr
 import functools 
+import collections
 
 import vistan.utilities as utils
 
@@ -284,20 +285,49 @@ def get_var_dist(hyper_params):
 
 class Posterior():
 
-    def __init__(self, M_sampling, log_p, log_q, sample_q, zlen, params, \
-                                        dict_to_array, array_to_dict):
+    def __init__(self, M_sampling, model, params, var_dist):
 
         self.M_sampling = M_sampling
-        self.log_p = log_p 
-        self.log_q = log_q
-        self.sample_q = sample_q
-        self.zlen = zlen
         self.params = params
-        self.dict_to_array = dict_to_array
-        self.array_to_dict = array_to_dict
-                                         
+        self.model = model
+        self.var_dist = var_dist
 
-    def sample(self, num_samples, params = None, M_sampling = None):
+
+        self.log_p = self.model.log_prob
+        self.log_q = self.var_dist.log_prob
+        self.sample_q = self.var_dist.sample
+        self.zlen = self.model.zlen
+
+
+    def sample(self, num_samples, params = None, M_sampling = None, return_constrained = True):
+        """
+            A function to allows sampling from the posterior.
+
+            Arguments : 
+
+                num_samples:            # of samples 
+
+                params:                 if None, then the stored optimized variational parameters
+                                        are used to sample. Alternatively, one can provide 
+                                        compatible parameters.
+
+                M_sampling:             If None, then M_sampling is set to M_training the 
+                                        variational inference was optimized with. Otherwise, a
+                                        user can specify a different M_sampling. This scales the 
+                                        sampling cost linearly.
+
+                return_constrained:     If True, returns the constrained parameters in the same
+                                        dictionary template as PyStan's .extract() method (without 'lp__'.) 
+                                        If False, then samples are returned unconstrained in np.ndarray
+                                        format such that z.shape = (num_samples, self.zlen) 
+            Returns:
+
+                z :                     If return_constrained is True, then a dictionary is the same template
+                                        as PyStan's StanModelFit4.extract() method. 
+                                        Else, returns the unconstrained samples in the np.ndarray format
+                                        such that z.shape = (num_samples, self.zlen)
+
+        """
         if params is None: 
             params = self.params
 
@@ -321,29 +351,46 @@ class Posterior():
                 final_samples.append(samples[i,j,:])
 
             samples =  np.array(final_samples).reshape(num_samples, self.zlen)
-        return self.array_to_dict(samples)
+
+        if return_constrained == True:
+            return self.constrained_array_to_dict(self.constrain(samples))
+        else :
+            return samples
 
     def log_prob(self, samples, params = None):
+
         if params is None: 
             params = self.params
 
 
         if self.M_sampling == 1:
+
+            # log q is only valid if M_sampling = 1
+            # if M_sampling > 1, then the overall q is different from the 
+            # base distribution. See Divide and Couple, NeurIPS'19. 
+
             if isinstance(samples, dict):
-                samples = self.dict_to_array(samples)
+                samples = self.unconstrain(samples)
             return self.log_q(params, samples)
 
         else :
             raise NotImplementedError
 
+    def constrain(self, z):
+        return self.model.constrain(z)
+
+    def constrained_array_to_dict(self, z):
+        assert z.ndim == 2
+        return self.model.constrained_array_to_dict(z)
+
+    def unconstrain(self, samples):
+        assert isinstance(samples, dict)
+        return self.model.unconstrain(samples)
+
 def get_posterior(model, var_dist, params, M_sampling):
 
     q = Posterior(M_sampling = M_sampling, 
-                    log_p = model.log_prob, 
-                    log_q = var_dist.log_prob, 
-                    sample_q = var_dist.sample, 
-                    zlen = var_dist.zlen, 
-                    params = params, 
-                    dict_to_array = model.dict_to_array, 
-                    array_to_dict = model.array_to_dict)
+                    model = model, 
+                    var_dist = var_dist, 
+                    params = params,)
     return q

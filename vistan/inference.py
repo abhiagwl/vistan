@@ -1,5 +1,6 @@
 import functools
 import autograd
+import autograd.numpy.random as npr
 
 import vistan.vi_families as vi_families
 import vistan.objectives as objectives
@@ -121,6 +122,11 @@ def hyperparams(**kwargs):
 
 
 def inference(code, data, model_name = None, verbose = True, hparams = hyperparams()):
+    # Stan is particular about model names
+    if model_name is not None: 
+        model_name = model_name.replace("-", "_")
+    npr.seed(hparams['seed'])
+
     model = interface.Model(code, data, model_name, verbose = verbose)
 
     print("Printing the Hyper-param configuration file...")
@@ -137,7 +143,8 @@ def inference(code, data, model_name = None, verbose = True, hparams = hyperpara
                                     z_len = hparams['latent_dim'], \
                                     num_epochs = hparams['LI_num_epochs'], \
                                     ε = hparams['LI_epsilon'],\
-                                    model_name = model_name)
+                                    model_name = model_name,
+                                    model_code = code)
 
     log_p = model.log_prob
     log_q = var_dist.log_prob
