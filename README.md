@@ -108,9 +108,9 @@ plt.legend()
 plt.show()
 ```
 ### IW-sampling
-We provide support to use IW-sampling at inference time (see [Advances in BBVI](https://proceedings.neurips.cc/paper/2020/file/c91e3483cf4f90057d02aa492d2b25b1-Paper.pdf) for more information.) This importance weights `M_iw_samples` candidate samples and picks one final sample. 
-```
-samples = posterior.sample(100000, M_iw_samples = 10)
+We provide support to use IW-sampling at inference time (see [Advances in BBVI](https://proceedings.neurips.cc/paper/2020/file/c91e3483cf4f90057d02aa492d2b25b1-Paper.pdf) for more information.) This importance weights `M_iw_sample` candidate samples and picks one final sample. 
+```python
+samples = posterior.sample(100000, M_iw_sample = 10)
 plt.hist(samples['p'], 200, density = True, histtype = 'step')
 plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
 plt.legend()
@@ -119,7 +119,7 @@ plt.show()
 ```
 ### Initialization
 We provide support to use Laplace's method to initialize the parameters for Gaussian VI.
-```
+```python
 algo = vistan.algorithm(method = 'gaussian', LI = True)
 posterior = algo(code, data) 
 samples = posterior.sample(100000)
@@ -132,7 +132,7 @@ plt.show()
 ```
 ### Building your own inference algorithms
 We provide access to the `model.log_prob` function we use internally for optimization. This allows you to evaluate the log density in the unconstrained space for your Stan mode. Also, this function is differentiable in `autograd`. 
-```
+```python
 posterior = vistan.algorithm(max_iters = 1)(code, data) 
 log_prob = posterior.model.log_prob
 
