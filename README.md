@@ -23,7 +23,8 @@ pip install vistan
 ```python
 import vistan 
 import matplotlib.pyplot as plt
-
+import numpy as np 
+import scipy
 code = """
 data {
     int<lower=0> N;
