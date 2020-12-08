@@ -5,9 +5,9 @@ import autograd
 import vistan.utilities as utils
 
 def objective_utils(params, log_p, log_q, sample_q, \
-                                        M_training, num_copies_training):
+                                        M_iw_train, num_copies_training):
 
-    samples_shape = (num_copies_training, M_training)  
+    samples_shape = (num_copies_training, M_iw_train)  
 
     params_stopped = autograd.core.getval(params)
 
@@ -22,34 +22,34 @@ def objective_utils(params, log_p, log_q, sample_q, \
     return z, lp, lq, lq_stopped
 
 def ELBO_cf_entropy(params, log_p, log_q, sample_q, entropy_q, \
-                                                M_training, num_copies_training):
+                                                M_iw_train, num_copies_training):
 
     _, lp, _, _ = objective_utils(params, log_p, log_q, sample_q, \
-                                                M_training, num_copies_training)
+                                                M_iw_train, num_copies_training)
 
     return np.mean(lp) + entropy_q(params)
 
-def IWELBO(params, log_p, log_q, sample_q, M_training, num_copies_training):
+def IWELBO(params, log_p, log_q, sample_q, M_iw_train, num_copies_training):
 
     _, lp, lq, _ = objective_utils(params, log_p, log_q, sample_q,\
-                                                 M_training, num_copies_training)
+                                                 M_iw_train, num_copies_training)
 
-    return np.mean(autoscipy.logsumexp(lp - lq, -1)) - np.log(M_training)
+    return np.mean(autoscipy.logsumexp(lp - lq, -1)) - np.log(M_iw_train)
 
-def IWELBO_STL(params, log_p, log_q, sample_q, M_training, num_copies_training):
+def IWELBO_STL(params, log_p, log_q, sample_q, M_iw_train, num_copies_training):
 
     _, lp, _, lq_stopped = objective_utils(params, log_p, log_q,\
-                                     sample_q, M_training, num_copies_training)
+                                     sample_q, M_iw_train, num_copies_training)
 
     lR = lp - lq_stopped
 
     return np.mean(np.sum(utils.softmax_matrix(lR)*lR, -1))
 
 def IWELBO_DREG(params, log_p, log_q, sample_q,\
-                                 M_training, num_copies_training):
+                                 M_iw_train, num_copies_training):
 
     _, lp, _, lq_stopped = objective_utils(params, log_p,\
-                             log_q, sample_q, M_training, num_copies_training)
+                             log_q, sample_q, M_iw_train, num_copies_training)
 
     lR = lp - lq_stopped
 
@@ -67,7 +67,7 @@ def choose_objective_eval_fn(hyper_params):
         objective = IWELBO_STL  
 
     elif hyper_params['grad_estimator'] == "closed-form-entropy":
-        assert (hyper_params['M_training'] == 1)
+        assert (hyper_params['M_iw_train'] == 1)
         assert ("gaussian" in hyper_params['vi_family'])
         objective = ELBO_cf_entropy  
     else:
@@ -91,14 +91,14 @@ def modify_objective_eval_fn(objective, evaluation_fn,\
                                 log_p = log_p,
                                 log_q = var_dist.log_prob, 
                                 sample_q = var_dist.sample,
-                                M_training = hyper_params['M_training'], 
+                                M_iw_train = hyper_params['M_iw_train'], 
                                 num_copies_training = hyper_params['num_copies_training'])
 
     m_evaluation_fn = functools.partial(evaluation_fn, 
                                 log_p = log_p,
                                 log_q = var_dist.log_prob, 
                                 sample_q = var_dist.sample,
-                                M_training = hyper_params['M_training'], 
+                                M_iw_train = hyper_params['M_iw_train'], 
                                 num_copies_training = hyper_params['num_copies_training'])
 
     if hyper_params['grad_estimator'] == "closed-form-entropy":

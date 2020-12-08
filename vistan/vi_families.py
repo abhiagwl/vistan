@@ -2,7 +2,7 @@ import autograd.numpy as np
 import autograd.numpy.random as npr
 import functools 
 import collections
-
+import warnings
 import vistan.utilities as utils
 
 class Dist():
@@ -93,7 +93,7 @@ class Diagonal(Gaussian):
         return [np.zeros(self.zlen,).astype(float), S*np.ones(self.zlen,).astype(float)]
 
     def transform_params(self, params):
-        
+        # raise NotImplementedError
         return params[0], np.diag(utils.pos_diag(params[1]))
 
 
@@ -285,10 +285,11 @@ def get_var_dist(hyper_params):
 
 class Posterior():
 
-    def __init__(self, M_sampling, model, params, var_dist):
+    def __init__(self, M_iw_sample, model, params, var_dist, results):
 
-        self.M_sampling = M_sampling
+        self.M_iw_sample = M_iw_sample
         self.params = params
+        self.optimization_trace = results
         self.model = model
         self.var_dist = var_dist
 
@@ -299,46 +300,55 @@ class Posterior():
         self.zlen = self.model.zlen
 
 
-    def sample(self, num_samples, params = None, M_sampling = None, return_constrained = True):
+    def sample(self, num_samples, params = None, M_iw_sample = None, return_constrained = True):
         """
             A function to allows sampling from the posterior.
 
-            Arguments : 
+            Parameters
+            ---------- 
 
-                num_samples:            # of samples 
+                num_samples (int):            
+                    # of samples 
 
-                params:                 if None, then the stored optimized variational parameters
-                                        are used to sample. Alternatively, one can provide 
-                                        compatible parameters.
+                params :                 
+                    if None, then the stored optimized variational parameters
+                    are used to sample. Alternatively, one can provide 
+                    compatible parameters.
 
-                M_sampling:             If None, then M_sampling is set to M_training the 
-                                        variational inference was optimized with. Otherwise, a
-                                        user can specify a different M_sampling. This scales the 
-                                        sampling cost linearly.
+                M_iw_sample (int):             
+                    If None, then M_iw_sample is set to M_iw_train the 
+                    variational inference was optimized with. Otherwise, a
+                    user can specify a different M_iw_sample. This scales the 
+                    sampling cost linearly.
 
-                return_constrained:     If True, returns the constrained parameters in the same
-                                        dictionary template as PyStan's .extract() method (without 'lp__'.) 
-                                        If False, then samples are returned unconstrained in np.ndarray
-                                        format such that z.shape = (num_samples, self.zlen) 
-            Returns:
+                return_constrained (bool):     
+                    If True, returns the constrained parameters in the same
+                    dictionary template as PyStan's .extract() method (without 'lp__'.) 
+                    If False, then samples are returned unconstrained in np.ndarray
+                    format such that z.shape = (num_samples, self.zlen) 
+            Returns
+            ---------- 
 
-                z :                     If return_constrained is True, then a dictionary is the same template
-                                        as PyStan's StanModelFit4.extract() method. 
-                                        Else, returns the unconstrained samples in the np.ndarray format
-                                        such that z.shape = (num_samples, self.zlen)
+                np.ndarray or dict:                     
+                    If return_constrained is True, then a dictionary is the same template
+                    as PyStan's StanModelFit4.extract() method. 
+                    Else, returns the unconstrained samples in the np.ndarray format
+                    such that z.shape = (num_samples, self.zlen)
 
         """
         if params is None: 
             params = self.params
 
-        if M_sampling is None : 
-            M_sampling = self.M_sampling
+        if M_iw_sample is None : 
+            M_iw_sample = self.M_iw_sample
+        elif M_iw_sample < self.M_iw_sample:
+            warnings.warn("Specified M_iw_sample is less than the M_iw_train. Setting M_iw_sample to M_iw_train.")
+            M_iw_sample = self.M_iw_sample
 
-        if  M_sampling== 1:
+        if  M_iw_sample== 1:
             samples =  self.sample_q(params, num_samples)
-
         else: 
-            shape = (num_samples, M_sampling)
+            shape = (num_samples, M_iw_sample)
             samples = self.sample_q(params, shape)
 
             lp = self.log_p(samples)
@@ -363,10 +373,10 @@ class Posterior():
             params = self.params
 
 
-        if self.M_sampling == 1:
+        if self.M_iw_sample == 1:
 
-            # log q is only valid if M_sampling = 1
-            # if M_sampling > 1, then the overall q is different from the 
+            # log q is only valid if M_iw_sample = 1
+            # if M_iw_sample > 1, then the overall q is different from the 
             # base distribution. See Divide and Couple, NeurIPS'19. 
 
             if isinstance(samples, dict):
@@ -387,10 +397,11 @@ class Posterior():
         assert isinstance(samples, dict)
         return self.model.unconstrain(samples)
 
-def get_posterior(model, var_dist, params, M_sampling):
+def get_posterior(model, var_dist, params, M_iw_sample, results):
 
-    q = Posterior(M_sampling = M_sampling, 
+    q = Posterior(M_iw_sample = M_iw_sample, 
                     model = model, 
                     var_dist = var_dist, 
-                    params = params,)
+                    params = params,
+                    results = results)
     return q

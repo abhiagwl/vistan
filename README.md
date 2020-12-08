@@ -59,6 +59,7 @@ plt.show()
 ```
 
 ### Gaussian VI 
+You can specify the hyper-parameters using the `vistan.hyperparams` function. We provide some default VI hyper-parameter choices which can accessed using `method` argument.   
 ```python
 hyperparams = vistan.hyperparams(method = 'gaussian')
 
@@ -102,11 +103,11 @@ plt.show()
 ```
 
 ### Custom
-
+You can also specify custom VI algorithms to work with your Stan models, just set the `method='custom'` and provide customized arguments.
 ```python
 hyperparams = vistan.hyperparams(   method = 'custom', 
                                     vi_family = "gaussian",
-                                    M_training = 10,
+                                    M_iw_train = 10,
                                     grad_estimator = "DReG",
                                     LI = True)
 
@@ -122,4 +123,4 @@ plt.show()
 
 ## Limitations
 
-- We will currently only support inference on all latent parameters in the model
+- We currently only support inference on all latent parameters in the model

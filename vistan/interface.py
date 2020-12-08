@@ -10,22 +10,23 @@ import functools
 import autograd
 import autograd.numpy as np
 import vistan.utilities as utils
-
+import logging
+# get pystan to stop warning
+logging.getLogger("pystan").propagate=False
 ###########################################################################
 #  stuff related to loading stan models and data
 ###########################################################################
 
-def is_good_model(code, data, model_name = None, verbose = True):
+def is_good_model(code, data, model_name = "test_model", verbose = True):
     if model_name is not None:
-
         model_name = model_name.replace("-","_")
     # TODO : make sure data is deterministic
     try:
 
         model = Model(code, data, model_name, verbose = verbose)
         # print(model.zlen)
-        print(model.keys)
-        exit()
+        # print(model.keys)
+        # exit()
         Z_nuts = model.sampling(iter=20, verbose = verbose)
         Z_advi = model.advi(iter=20, verbose = verbose)
         # Z_mf   = model.mf(iter=20)
@@ -40,8 +41,8 @@ def is_good_model(code, data, model_name = None, verbose = True):
         # also check that optimization works
         z,rez  = model.argmax(True,method='BFGS',gtol=1e-3,maxiter=20) 
 
-        if not rez.success:
-            pass
+        # if not rez.success:
+            # pass
             # print(rez)
             # raise ValueError("optimization failed")
         if len(z) != Z_nuts.shape[1]:
@@ -57,21 +58,9 @@ def is_good_model(code, data, model_name = None, verbose = True):
         # return False
 
 ###########################################################################
-#  stuff related to compiling and caching stan models
+#  Compiling and Caching Stan models
 ###########################################################################
 
-# removes whitespace and such to prevent extra compiling
-# this is only used for hashing (original code is compiled)
-
-
-# import Cython
-# get_model_name(model_name, code):
-#     model_code_stripped = standardize_code(model_code)
-#     code_hash = hashlib.md5(model_code_stripped.encode('ascii')).hexdigest()
-#     if model_name is None:
-#         return model_name+"-"+
-#     else:
-#         cache_fn = 'data/cached-models/{}-{}.pkl'.format(model_name, code_hash)
 
 def get_compiled_model(model_code, model_name=None, verbose = False, **kwargs):
     """Use just as you would `stan` from pystan"""
@@ -82,28 +71,69 @@ def get_compiled_model(model_code, model_name=None, verbose = False, **kwargs):
     cache_fn = f'data/cached-models/{utils.get_cache_fname(model_name, model_code)}.pkl'
 
     if os.path.isfile(cache_fn):
-        with open(cache_fn, 'rb') as f:
-            sm = pickle.load(f)
+        try:
+            with open(cache_fn, 'rb') as f:
+                sm = pickle.load(f)
+            print("Compiled model found...")
+        except:
+            print("Error during re-loading the complied model.")
+            print(f"Try recompiling the model. Changed the name of the model or delete the saved pickled file at {cache_fn}.")
+            raise
     else:
         try:
-            print("Cached model not found. Recompiling...")            
-            with utils.suppress_stdout_stderr(verbose = verbose):
+            print("Cached model not found. Compiling...")            
+            with utils.suppress_stdout_stderr(verbose):
                 sm = pystan.StanModel(model_code=model_code, model_name=model_name, **kwargs)
         except:
             print("Error during compilation...")
-            print('Could not compile code for ' + model_code, ". Trying turning verbose for better debugging.")
+            print('Could not compile code for ' + model_code)
             raise
+
         print("Caching model...")
         with open(cache_fn, 'wb') as f:
             pickle.dump(sm, f)        
     return sm
 
 ###########################################################################
-#  here's the object provided to the user-- a logp function that hooks into autograd
+#  Class to provide the log_prob function that hooks into autograd
 ###########################################################################
 
 class Model:
-    def __init__(self, model_code, data, model_name=None, verbose = True, debugging_verbose = False):
+    def __init__(self, model_code, data, model_name=None, verbose = False):
+        """
+            A class to interface with the autograd. 
+
+            Arguments
+            ----------
+                model_code (string):
+                    Stan code for the model 
+                data (dict):
+                    Data in the dictionary format 
+                model_name (string):
+                    Name of the model for easier identification. 
+                    This along with code is used to cache compiled models.
+                                        
+                verbose (bool):
+                    If True, it will print additional details involving Stan compilation.
+
+            Attributes
+            ----------
+                data(dict):
+                     Model data   
+                model_name(string):
+                     If None, only model_code is used to cache.   
+                model_code(string):
+                     Stan code. Also, used to cache.
+                sm(StanModel):
+                      Complied StanModel instance.
+                fit(StandModelFit4):
+                    A StanModelFit4 instance obtained using self.sm.sampling
+                keys(list):
+                     Names of the unconstrained parameters.    
+                zlen(list):
+                     Number of latent dimensions in the model.
+
+        """
         extra_compile_args = ['-O1','-w','-Wno-deprecated'] # THIS IS SLOW! TURN OPTIMIZATION ON SOMEDAY!
 
         self.data = data
@@ -113,25 +143,28 @@ class Model:
         self.sm = get_compiled_model(model_code=self.model_code, extra_compile_args=extra_compile_args,\
                 model_name=self.model_name, verbose = verbose)
         try:
-            with utils.suppress_stdout_stderr(verbose = debugging_verbose):
+            with utils.suppress_stdout_stderr(False):
                 self.fit = self.sm.sampling(data=self.data, iter=100, chains=1, init=0)
         except:
-            print('Could not init model for ' + model_code)
-            print('Try turning debugging_verbose on for better debugging.')
+            print('Error occurred during a sampling check for complied model.')
+            print('Could not sample for ' + model_code)
             raise 
 
         self.keys = self.fit.unconstrained_param_names()
         self.zlen = len(self.keys)
 
-        # with utils.suppress_stdout_stderr(verbose = debugging_verbose):
-        #     results = self.sm.vb(data = self.data, algorithm = "meanfield", iter = 10)
-        #     self.advi_param_names = results['sampler_param_names']
-        # except:
-        #     print('Could not run advi on model ' + model_code)
-        #     print('Try turning debugging_verbose on for better debugging.')
-        #     raise 
 
     def get_constrained_param_shapes(self):
+        """
+        Returns
+        -------
+
+        A dictionary containing the shapes of all the parameters that 
+        are return my the PyStan's sampling function. This involves
+        transformed parameters and generated quantities. This is useful
+        to transform the unconstrained results from ADVI and vistan to 
+        constrained format similar to PyStan's StanModelFit4.extract()
+        """
         results = self.fit.extract()
         N = self.get_n_samples(results)
         constrained_param_shapes = collections.OrderedDict()
@@ -146,41 +179,55 @@ class Model:
 
     def z0(self):
         """
-            Get a random initialization for the latent parameters.  Useful for MAP inference.
+        Returns
+        ----------
+        np.ndarray
+            a random initialization used for optimization
         """
         return np.random.randn(self.zlen)
 
-    def sampling(self, verbose = True, **kwargs):
+    def sampling(self, verbose = False, **kwargs):
         """
-            A function to access PyStan MCMC sampling techniques. 
-            Returns samples in the unconstrained domain, in the form an array.
-            See array_to_dict function to convert into dictionary format.  
+        Parameters
+        ----------
+        verbose : bool
+            If True, will print the suppressed print statements.
+        kwargs : dict
+            keyword arguments passed to PyStan's StanModel.sampling
+
+        Returns
+        ----------
+        np.ndarray
+            An array of unconstrained latent variables of the shape (num_samples, self.zlen) 
         """
         try: 
             assert kwargs.get('iter',2) >=2
-            warnings.simplefilter('ignore')
             with utils.suppress_stdout_stderr(verbose):
+                logging.getLogger("pystan").propagate=verbose
                 self.fit = self.sm.sampling(data=self.data,**kwargs)
-            # print(self.fit.extract().keys())
+                logging.getLogger("pystan").propagate=False
             rez = self.unconstrain(self.fit.extract())
-            warnings.simplefilter('default')
         except:
+            print("Error during sampling from the model.")
             raise
         return rez
 
-    def argmax(self,with_rez=False,method='BFGS',**kwargs):
+    def argmax(self, with_rez=False, method='BFGS',**kwargs):
         """
-            A function to obtain MAP estimate using scipy.optimize.minimize.
-            Arguments:
+            Parameters
+            ----------
                 with_rez :  Boolean
-                            If True, returns the entire results object along with z_map.
+                    If True, returns the entire results object along with z_map.
                 method :    String
-                            One of suggested_solvers = ['CG','BFGS','L-BFGS-B','TNC','SLSQP'].
-                kwargs:     arguments for scipy.optimize.minimize. see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-                            for more details 
-            Returns:
-                z_map:      parameter value at Maximum-a-posteriori
-                rez:        result object from scipy.optimize.minimize
+                    One of suggested_solvers = ['CG','BFGS','L-BFGS-B','TNC','SLSQP'].
+                kwargs:  dict
+                    Arguments for scipy.optimize.minimize. See 
+                    https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+                    for more details 
+            Returns
+            ----------
+                z_map, rez: np.ndarray, dict
+                parameter at Maximum-a-posteriori, result object from scipy.optimize.minimize
         """
         suggested_solvers = ['CG','BFGS','L-BFGS-B','TNC','SLSQP']
         if not method in suggested_solvers:
@@ -198,66 +245,37 @@ class Model:
             return rez.x
 
         
-    def advi(self, algorithm='fullrank', verbose = True, **kwargs):
+    def advi(self, algorithm='fullrank', verbose = False, **kwargs):
         """
             A function to run Stan's variational Bayes method (ADVI)
-            Arguments:
+            Parameters
+            ----------
                 algorithm:  "fullrank" or "meanfield"
                 verbsoe:    Boolean
                             If True, prints the optimization messages from ADVI
                 kwargs:     arguments for vb see https://pystan.readthedocs.io/en/latest/api.html#pystan.StanModel.vb
                             for more details 
-            Returns:
+            Returns
+            ----------
                 samples:    samples from the final posterior
         """
         try:
-            with utils.suppress_stdout_stderr(verbose = verbose):
+            with utils.suppress_stdout_stderr(verbose):
                 rez = self.sm.vb(data=self.data,algorithm=algorithm,**kwargs)
         except:
-            print('ADVI failed with error...\n', traceback.print_exc())
-            return np.array([[]])
-        # def pystan_vb_extract(results):
+            print('Error during ADVI...')
+            raise
+
         samples = np.array(rez["sampler_params"])[:-1,:].T
-        # samples = rez['sampler_params']
-        # param_specs = rez['sampler_param_names']
-        # params1 = self.method1(samples, param_specs)
-        # params2 = self.method2(samples)
-        # p1 = self.unconstrain(params1)
-        # p2 = self.unconstrain(params2)        #returning unconstrain for internal consistency
-        # return p1, p2 
-        return self.unconstrain(self.method2(samples))
 
-    def method1(self, samples, param_specs):
-
-        N = len(samples[0])
+        return self.unconstrain(self.constrained_array_to_dict(samples))
 
 
-        # first pass, calculate the shape
-        param_shapes = collections.OrderedDict()
-        for param_spec in param_specs:
-            splt = param_spec.split('[')
-            name = splt[0]
-            if len(splt) > 1:
-                idxs = [int(i) for i in splt[1][:-1].split(',')]  # no +1 for shape calculation because pystan already returns 1-based indexes for vb!
-            else:
-                idxs = ()
-            param_shapes[name] = np.maximum(idxs, param_shapes.get(name, idxs))
-
-        # create arrays
-        params = collections.OrderedDict([(name, np.nan * np.empty((N, ) +\
-                                 tuple(shape))) for name, shape in param_shapes.items()])
-
-        # second pass, set arrays
-        for param_spec, param_samples in zip(param_specs, samples):
-            splt = param_spec.split('[')
-            name = splt[0]
-            if len(splt) > 1:
-                idxs = [int(i) - 1 for i in splt[1][:-1].split(',')]  # -1 because pystan returns 1-based indexes for vb!
-            else:
-                idxs = ()
-            params[name][(..., ) + tuple(idxs)] = param_samples
-
-        return params
+    def mf(self,verbose = False, **kwargs):
+        """
+            A function to run Stan's variational Bayes method (ADVI) -- meanfield
+        """
+        return self.advi(algorithm='meanfield', verbose = verbose, **kwargs)
 
     def constrained_array_to_dict(self, samples):
         assert samples.ndim == 2
@@ -273,33 +291,30 @@ class Model:
         assert idx == samples.shape[1]
         return params
 
-    def mf(self,**kwargs):
-        """
-            A function to run Stan's variational Bayes method (ADVI) -- meanfield
-        """
-        return self.advi(algorithm='meanfield', verbose = True, **kwargs)
-
-
     def constrain(self, z):
         """
             A function to constrain the parameters from unconstrained to original constrained range
             as defined in the model.
-            Arguments:
+            Parameters
+            ----------
                 z:  samples in array np.ndarray format
-            Returns:
+            Returns
+            ----------
                 samples: unconstrained samples np.ndarray format
         """
 
         assert z.ndim == 2
-        # assert z.shape[-1] == self.zlen
+        assert z.shape[-1] == self.zlen
         return np.array([self.fit.constrain_pars(np.asarray(z_,order='C')) for z_ in z])
 
     def get_n_samples(self, z):
         """
             A function to get the number of samples. 
-            Arguments:
+            Parameters
+            ----------
                 z:  samples in array np.ndarray or dictionary format
-            Returns:
+            Returns
+            ----------
                 N: number of samples
         """
 
@@ -309,57 +324,20 @@ class Model:
         else:
             return list(z.values())[0].shape[0]
 
-    # def array_to_dict(self, z):
-    #     """
-    #         A function to convert parameters from np.ndarray format to dictionary. 
-    #         Keys are inferred from the model definition.
-    #         Arguments:
-    #             z:  samples in array np.ndarray format
-    #         Returns:
-    #             samples: samples in dictionary format
-    #     """
-
-    #     assert self.get_n_samples(z) >= 1 
-    #     assert z.shape[-1] == self.zlen
-
-    #     return collections.OrderedDict({k:z[:, i] for i,k in enumerate(self.keys)})
-
-    # def dict_to_array(self, z):
-    #     """
-    #         A function to convert parameters from dictionary format to np.ndarray. 
-    #         Keys are used from the dictionary.
-    #         Arguments:
-    #             z: samples in dictionary format
-    #         Returns:
-    #             samples:  samples in array np.ndarray format
-    #     """
-    #     if not isinstance(z, dict):
-    #         raise ValueError
-    #     print(z.keys())
-    #     for k in z.keys():
-    #         print(z[k].shape)
-    #     s = np.array([v  for k.v in z.items()])
-    #     assert s.shape[-1] == self.zlen
-    #     return s
 
     def unconstrain(self, z):
         """
             A function to unconstrain the parameters from original constrained range to unconstrained
             domain. Uses the model definition from Stan to transform.
-            Arguments:
+            Parameters
+            ----------
                 z:  samples in array np.ndarray or dictionary format
-            Returns:
+            Returns
+            ----------
                 samples: unconstrained samples np.ndarray format
         """
         assert isinstance(z, dict)
         N = self.get_n_samples(z)
-        # print(N)
-        # if not isinstance(z, (dict,)):
-        #     z = self.array_to_dict(z)
-        # else:
-            # not required. Stan takes care of this internally.
-            # if "lp___" in list(z.keys()):
-            #     del z['lp__']
 
         return np.array([self.fit.unconstrain_pars({k:v[n] for k,v in z.items()}) \
                                 for n in range(N)])
@@ -368,9 +346,11 @@ class Model:
     def log_prob(self, z):
         """
             A simple function to get batched sample evaluation for models.
-            Arguments:
+            Parameters
+            ----------
                 z:  unconstrained samples in array np.ndarray 
-            Returns:
+            Returns
+            ----------
                 log p: model log p(z,x) evaluation at unconstrained z samples. Adjust transform in used under the hood. 
         """
         orig_samples_shape = z.shape
@@ -381,6 +361,16 @@ class Model:
 
     @autograd.primitive
     def logp(self,z):
+        """
+            A simple function to get log prob on a single sample
+            Parameters
+            ----------
+                z (np.ndarray):  
+                single unconstrained sample 
+            Returns
+            ----------
+                log p(z,x) evaluation at unconstrained z
+        """
         assert(z.ndim==1)
         assert(len(z)==self.zlen)
         try: # try to evaluate logp with stan. if you fail, just return nan
@@ -390,11 +380,25 @@ class Model:
         return rez
         
     def glogp(self,z):
+        """
+            A simple function to get grad(log prob) on a single sample
+            Parameters
+            ----------
+                z (np.ndarray):  
+                single unconstrained sample 
+            Returns
+            ----------
+                grad log p(z,x) evaluation at unconstrained z
+        """
         assert(len(z)==self.zlen)
         rez_from_stan = self.fit.grad_log_prob(z,adjust_transform=True)
         return rez_from_stan.reshape(z.shape)
 
     def vjpmaker(argnum,rez,stuff,args):
+
+        """
+            A simple function to covert the grad to vjp 
+        """
         obj = stuff[0]
         z   = stuff[1]
         if np.isnan(rez):

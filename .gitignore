@@ -14,3 +14,6 @@ build
 dist
 deploy.sh
 readmetest.py
+justest.py
+*ipynb
+notes.md
