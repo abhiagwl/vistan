@@ -1,6 +1,6 @@
 # vistan
 
-`vistan` is a simple library to run variational inference algorithms on Stan models.
+`vistan` is a simple library to run variational inference algorithms on Stan models. Our primary aim is to help you quickly run variational methods from [Advances in BBVI](https://proceedings.neurips.cc/paper/2020/file/c91e3483cf4f90057d02aa492d2b25b1-Paper.pdf) on any Stan model. `vistan` uses [autograd](https://github.com/HIPS/autograd) and [PyStan](https://github.com/stan-dev/pystan) under the hood.
 
 ## Features
 
@@ -9,7 +9,6 @@
 > - **Variational Families:** Full-rank Gaussian, Diagonal Gaussian, RealNVP
 > - **Objectives:** ELBO, IW-ELBO
 > - **IW-sampling:** Posterior samples using importance weighting
-
 
 ## Installation
 
@@ -130,7 +129,16 @@ plt.legend()
 plt.show()
 
 ```
-    
+### Building your own inference algorithms
+We provide access to the `model.log_prob` function we use internally for optimization. This allows you to evaluate the log density in the unconstrained space for your Stan mode. Also, this function is differentiable in `autograd`. 
+```
+posterior = vistan.algorithm(max_iters = 1)(code, data) 
+log_prob = posterior.model.log_prob
+
+```
+
+
+
 ## Limitations
 
 - We currently only support inference on all latent parameters in the model
