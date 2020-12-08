@@ -14,6 +14,7 @@ import autograd.numpy as np
 import autograd.numpy.random as npr
 import autograd.misc.optimizers as optim
 import tqdm.auto
+import tqdm
 ########################################################################################
 ######################### Generic Inference Utilities ###############################
 ########################################################################################
@@ -44,6 +45,7 @@ def update_hparams_method(hparams):
                 'optimizer' : 'advi',
                 'advi_convergence_threshold' : 0.001,
                 'advi_adapt_step_size_num_iters' : 100,
+                'advi_adapt_step_size_verbose' : False,
                 'M_iw_train' : 1,
                 'LI' : False,
                 'per_iter_sample_budget':100,
@@ -102,9 +104,9 @@ def update_hparams_method(hparams):
         pass
 
     else:
-        raise NotImplementedError(f"Method not unsupported. Expected one\
-                 of ['advi', 'flows', 'gaussian', 'meanfield', 'custom'], \
-                 but got {hparams['method']}")
+        raise NotImplementedError(f"""Method not unsupported. Expected one of 
+            ['advi', 'flows', 'gaussian', 'meanfield', 'custom'], but got {hparams['method']}
+            """)
 
 
 
@@ -297,68 +299,60 @@ def get_adapted_step_size(objective_grad, eval_function, init_params, \
     best_step_size = 0
 
     try: 
-        with suppress_stdout_stderr(hparams['advi_adapt_step_size_verbose']):
-            print("############################################ ")
-            print(f"########## Initial elbo: {init_elbo}")
-            print("############################################ ")
+        print(f" Initial elbo: {init_elbo}")
+        for i, step_size in enumerate(hparams['advi_adapt_step_size_range']):
 
-            for i, step_size in enumerate(hparams['advi_adapt_step_size_range']):
+            results = []
+            print(f" Checking the step_size: {step_size}")
+            try: 
+                optimized_params = run_optimization(objective_grad = objective_grad, 
+                                                    init_params = init_params, 
+                                                    step_size = step_size, 
+                                                    num_epochs = hparams['advi_adapt_step_size_num_iters'], 
+                                                    callback = None, 
+                                                    optimizer = advi_optimizer)
 
-                results = []
+            except Exception:
+                print(f"Error occured during the optimization with step-size {step_size}...")
+                print(traceback.print_exc())
+                print(f"Using initial parameters instead for {step_size}...")
+                optimized_params = init_params
 
-                print("############################################ ")
-                print(f"########## Checking the step_size: {step_size}")
-                print("############################################ ")
+            candidate_elbo  = eval_function(optimized_params)
 
-                try: 
-                    optimized_params = run_optimization(objective_grad = objective_grad, 
-                                                        init_params = init_params, 
-                                                        step_size = step_size, 
-                                                        num_epochs = hparams['advi_adapt_step_size_num_iters'], 
-                                                        callback = None, 
-                                                        optimizer = advi_optimizer)
+            if np.isnan(candidate_elbo):
 
-                except Exception:
-                    print(f"Error occured during the optimization with step-size {step_size}...")
-                    print(traceback.print_exc())
-                    print(f"Using initial parameters instead for {step_size}...")
-                    optimized_params = init_params
+                candidate_elbo = -1.0*np.inf 
 
-                candidate_elbo  = eval_function(optimized_params)
+            if  (candidate_elbo < best_elbo) & \
+                (best_elbo > init_elbo):
 
-                if np.isnan(candidate_elbo):
+                assert(best_step_size!= 0)
 
-                    candidate_elbo = -1.0*np.inf 
+                print("Best step_size found, best step_size : ", best_step_size)
+                print("Best step_size found, best elbo : ", best_elbo)
 
-                if  (candidate_elbo < best_elbo) & \
-                    (best_elbo > init_elbo):
+                return best_step_size
 
-                    assert(best_step_size!= 0)
+            else:
 
-                    print("Best step_size found, best step_size : ", best_step_size)
-                    print("Best step_size found, best elbo : ", best_elbo)
+                if  ((i+1) < len(hparams['advi_adapt_step_size_range'])):
 
-                    return best_step_size
+                    best_elbo = candidate_elbo
+                    best_step_size = step_size
 
                 else:
 
-                    if  ((i+1) < len(hparams['advi_adapt_step_size_range'])):
+                    if candidate_elbo > init_elbo:
 
-                        best_elbo = candidate_elbo
-                        best_step_size = step_size
+                        print("Best step_size found, best step_size : ", best_step_size)
+                        print("Best step_size found, best elbo : ", best_elbo)
 
-                    else:
+                        return best_step_size
 
-                        if candidate_elbo > init_elbo:
+                    else :
 
-                            print("Best step_size found, best step_size : ", best_step_size)
-                            print("Best step_size found, best elbo : ", best_elbo)
-
-                            return best_step_size
-
-                        else :
-
-                            raise ValueError("ELBO value diverged for all step_sizes. Update step_size range")
+                        raise ValueError("ELBO value diverged for all step_sizes. Update step_size range")
 
     except: 
         print("Error occurred during when adapting step_size for ADVI")
@@ -370,13 +364,13 @@ def optimization_handler(objective_grad, eval_function, init_params, optimizer,\
                             num_epochs, step_size, callback, hparams, **kwargs):
 
     if  (hparams['advi_adapt_step_size']) & (hparams['advi_use']):
-
-        step_size = get_adapted_step_size(objective_grad = objective_grad, 
-                                            eval_function = eval_function,
-                                            init_params = init_params,
-                                            optimizer = optimizer, 
-                                            num_epochs = num_epochs, 
-                                            hparams = hparams)
+        with suppress_stdout_stderr(hparams['advi_adapt_step_size_verbose']):
+            step_size = get_adapted_step_size(objective_grad = objective_grad, 
+                                                eval_function = eval_function,
+                                                init_params = init_params,
+                                                optimizer = optimizer, 
+                                                num_epochs = num_epochs, 
+                                                hparams = hparams)
 
     results = []
     t0 = time.time()
@@ -425,8 +419,8 @@ def advi_callback(params, t, g, results, delta_results, model, \
     results.append(eval_function(params))
 
     if (t+1)%hparams['advi_callback_iteration']==0:
-        print(f"Iteration {t+1} log likelihood IW-ELBO(M_iw_train={hparams['M_iw_train']}), running mean :{np.nanmean(results)}")
-        print(f"Iteration {t+1} log likelihood IW-ELBO(M_iw_train={hparams['M_iw_train']}), current value :{(results[-1])}")
+        tqdm.tqdm.write(f"Iteration {t+1} IW-ELBO(M_iw_train={hparams['M_iw_train']}), running mean :{np.nanmean(results)}")
+        tqdm.tqdm.write(f"Iteration {t+1} IW-ELBO(M_iw_train={hparams['M_iw_train']}), current value :{(results[-1])}")
 
         if len(results) > hparams['advi_callback_iteration']:
             previous_elbo = results[-(hparams['advi_callback_iteration']+1)] 
@@ -438,11 +432,11 @@ def advi_callback(params, t, g, results, delta_results, model, \
         delta_elbo_mean = np.nanmean(delta_results)
         delta_elbo_median = np.nanmedian(delta_results)
 
-        print(f"Iteration {t+1} Δ mean {delta_elbo_mean}")
-        print(f"Iteration {t+1} Δ median {delta_elbo_median}")
+        tqdm.tqdm.write(f"Iteration {t+1} Δ mean {delta_elbo_mean}")
+        tqdm.tqdm.write(f"Iteration {t+1} Δ median {delta_elbo_median}")
         if((delta_elbo_median <= hparams['advi_convergence_threshold'])|\
                 (delta_elbo_mean <= hparams['advi_convergence_threshold'])):
-            print("Converged according to ADVI metrics for Median/Mean")
+            tqdm.tqdm.write("Converged according to ADVI metrics for Median/Mean")
             return "exit"
     return None
 
@@ -453,7 +447,7 @@ def adam(grad, x0, callback=None, num_iters=100,
     x, unflatten = autograd.misc.flatten(x0)
     m = np.zeros(len(x))
     v = np.zeros(len(x))
-    for i in tqdm.auto.tqdm(range(num_iters), desc = "Optimization loop"):
+    for i in tqdm.auto.tqdm(range(num_iters), desc = "Optimizing"):
         g = autograd.misc.flatten(grad(unflatten(x), i))[0]
         if callback: 
             flag = callback(unflatten(x), i, unflatten(g))
@@ -474,7 +468,7 @@ def advi_optimizer(grad, x0, callback, num_iters, step_size,\
     """
     x, unflatten = autograd.misc.flatten(x0)
     s = np.zeros(len(x))
-    for i in tqdm.auto.tqdm(range(num_iters), desc = "Optimization loop"):
+    for i in tqdm.auto.tqdm(range(num_iters), desc = "Optimizing"):
         g = autograd.misc.flatten(grad(unflatten(x), i))[0]
         if callback: 
             flag = callback(unflatten(x), i, unflatten(g))

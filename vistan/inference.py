@@ -10,7 +10,7 @@ import vistan.hyperparams as hyperparams
 
 
 def algorithm(**kwargs):
-    hparams = hyperparams.hparams_dict
+    hparams = hyperparams.hparams_dict.copy()
 
     for k in kwargs.keys():
         if k not in hparams.keys():
@@ -28,7 +28,7 @@ def algorithm(**kwargs):
 
 
 
-def inference(code, data, hparams, model_name = "default_model_name", verbose = False, print_hparams = False ):
+def inference(code, data, hparams, *, model_name = "default_model_name", verbose = False, print_hparams = False ):
     npr.seed(hparams['seed'])
     # exit()
     if not code.isascii():

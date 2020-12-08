@@ -27,62 +27,52 @@ import matplotlib.pyplot as plt
 
 code = """
 data {
-  int<lower=0> J;         // number of schools
-  real y[J];              // estimated treatment effects
-  real<lower=0> sigma[J]; // standard error of effect estimates
+    int<lower=0> N;
+    int<lower=0,upper=1> x[N];
 }
 parameters {
-  real mu;                // population treatment effect
-  real<lower=0> tau;      // standard deviation in treatment effects
-  vector[J] eta;          // unscaled deviation from mu by school
-}
-transformed parameters {
-  vector[J] theta = mu + tau * eta;        // school treatment effects
+    real<lower=0,upper=1> p;
 }
 model {
-  target += normal_lpdf(eta | 0, 1);       // prior log-density
-  target += normal_lpdf(y | theta, sigma); // log-likelihood
+    p ~ beta(1,1);
+    x ~ bernoulli(p);
 }
 """
+data = {"N":5, "x":[0,1,0,0,0]}
+algo = vistan.algorithm() # runs Meanfield VI by default
+posterior = algo(code, data) 
+samples = posterior.sample(100000)
 
-data = {"J": 8,
-        "y": [28,  8, -3,  7, -1,  1, 18, 12],
-        "sigma": [15, 10, 16, 11,  9, 11, 10, 18]}
-
-posterior, model, results = vistan.inference(code = code, data = data) # runs Meanfield VI by default
-
-samples = posterior.sample(1000)
-for i in range(samples['eta'].shape[1]):
-    plt.plot(samples["eta"][:,i], label = "eta[i]")
+points = np.arange(0,1,.01)
+plt.hist(samples['p'], 200, density = True, histtype = 'step')
+plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
+plt.legend()
 plt.show()
-
 ```
 
 ### Gaussian VI 
-You can specify the hyper-parameters using the `vistan.hyperparams` function. We provide some default VI hyper-parameter choices which can accessed using `method` argument.   
+We provide some default VI algorithm choices which can accessed using `method` argument.   
 ```python
-hyperparams = vistan.hyperparams(method = 'gaussian')
+algo = vistan.algorithm(method = 'gaussian')
+posterior = algo(code, data) 
+samples = posterior.sample(100000)
 
-posterior, model, results = vistan.inference(code = code, data = data, 
-                        hparams = hyperparams, verbose = True)
-
-samples = posterior.sample(1000)
-for i in range(samples['eta'].shape[1]):
-    plt.plot(samples["eta"][:,i], label = "eta[i]")
+plt.hist(samples['p'], 200, density = True, histtype = 'step')
+plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
+plt.legend()
 plt.show()
 
 ```
 
 ### Flow-based VI
 ```python
-hyperparams = vistan.hyperparams(method = 'flows')
+algo = vistan.algorithm(method = 'flows')
+posterior = algo(code, data) 
+samples = posterior.sample(100000)
 
-posterior, model, results = vistan.inference(code = code, data = data, 
-                        hparams = hyperparams, verbose = True)
-
-samples = posterior.sample(1000)
-for i in range(samples['eta'].shape[1]):
-    plt.plot(samples["eta"][:,i], label = "eta[i]")
+plt.hist(samples['p'], 200, density = True, histtype = 'step')
+plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
+plt.legend()
 plt.show()
 
 ```
@@ -90,37 +80,57 @@ plt.show()
 ### ADVI
 
 ```python
-hyperparams = vistan.hyperparams(method = 'advi')
+algo = vistan.algorithm(method = 'advi')
+posterior = algo(code, data) 
+samples = posterior.sample(100000)
 
-posterior, model, results = vistan.inference(code = code, data = data, 
-                                hparams = hyperparams, verbose = True)
-
-samples = posterior.sample(1000)
-for i in range(samples['eta'].shape[1]):
-    plt.plot(samples["eta"][:,i], label = "eta[i]")
+plt.hist(samples['p'], 200, density = True, histtype = 'step')
+plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
+plt.legend()
 plt.show()
-
 ```
 
 ### Custom
 You can also specify custom VI algorithms to work with your Stan models, just set the `method='custom'` and provide customized arguments.
 ```python
-hyperparams = vistan.hyperparams(   method = 'custom', 
-                                    vi_family = "gaussian",
-                                    M_iw_train = 10,
-                                    grad_estimator = "DReG",
-                                    LI = True)
+algo = vistan.algorithm(method = 'custom', 
+                        M_iw_train = 2,
+                        grad_estimator = "DReG",
+                        vi_family = "gaussian",
+                        per_iter_sample_budget = 10,
+                        max_iters = 100)
+posterior = algo(code, data) 
+samples = posterior.sample(100000)
 
-posterior, model, results = vistan.inference(code = code, data = data, 
-                                hparams = hyperparams, verbose = True)
-
-samples = posterior.sample(1000)
-for i in range(samples['eta'].shape[1]):
-    plt.plot(samples["eta"][:,i], label = "eta[i]")
+plt.hist(samples['p'], 200, density = True, histtype = 'step')
+plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
+plt.legend()
+plt.show()
+```
+### IW-sampling
+We provide support to use IW-sampling at inference time (see [Advances in BBVI](https://proceedings.neurips.cc/paper/2020/file/c91e3483cf4f90057d02aa492d2b25b1-Paper.pdf) for more information.) This importance weights `M_iw_samples` candidate samples and picks one final sample. 
+```
+samples = posterior.sample(100000, M_iw_samples = 10)
+plt.hist(samples['p'], 200, density = True, histtype = 'step')
+plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
+plt.legend()
 plt.show()
 
 ```
+### Initialization
+We provide support to use Laplace's method to initialize the parameters for Gaussian VI.
+```
+algo = vistan.algorithm(method = 'gaussian', LI = True)
+posterior = algo(code, data) 
+samples = posterior.sample(100000)
 
+plt.hist(samples['p'], 200, density = True, histtype = 'step')
+plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
+plt.legend()
+plt.show()
+
+```
+    
 ## Limitations
 
 - We currently only support inference on all latent parameters in the model

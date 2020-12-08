@@ -338,12 +338,14 @@ class Posterior():
         """
         if params is None: 
             params = self.params
+        else:
+            warnings.warn("Using params different then the optimized params.")
+
 
         if M_iw_sample is None : 
             M_iw_sample = self.M_iw_sample
         elif M_iw_sample < self.M_iw_sample:
-            warnings.warn("Specified M_iw_sample is less than the M_iw_train. Setting M_iw_sample to M_iw_train.")
-            M_iw_sample = self.M_iw_sample
+            warnings.warn("Specified M_iw_sample is less than the M_iw_train.")
 
         if  M_iw_sample== 1:
             samples =  self.sample_q(params, num_samples)
@@ -368,23 +370,45 @@ class Posterior():
             return samples
 
     def log_prob(self, samples, params = None):
+        """
+            A function to get log_prob of the base q distribution. This is 
+            not necessarily same as the log_prob of the posterior.
+
+            Parameters
+            ---------- 
+
+                samples (dict or np.ndarray):            
+                    samples as returned by the Posterior.sample function
+
+                params :                 
+                    if None, then the stored optimized variational parameters
+                    are used to sample. Alternatively, one can provide 
+                    compatible parameters.
+
+            Returns
+            ---------- 
+
+                np.ndarray or float:                     
+                    The log_prob for base q distribution evaluated in the unconstrained space. 
+                    This is not always the log_prob of the posterior distribution.
+        """
 
         if params is None: 
             params = self.params
+        else:
+            warnings.warn("Using params different then the optimized params.")
 
+        warnings.warn("""
+            log_prob function returns the log density of the unconstrained base q distribution
+            used during optimization. If you trained with M_iw_train > 1, then this different 
+            than the log_prob of the posterior. 
 
-        if self.M_iw_sample == 1:
+            Please, see https://arxiv.org/pdf/1808.09034 for more details.  
+            """)
 
-            # log q is only valid if M_iw_sample = 1
-            # if M_iw_sample > 1, then the overall q is different from the 
-            # base distribution. See Divide and Couple, NeurIPS'19. 
-
-            if isinstance(samples, dict):
-                samples = self.unconstrain(samples)
-            return self.log_q(params, samples)
-
-        else :
-            raise NotImplementedError
+        if isinstance(samples, dict):
+            samples = self.unconstrain(samples)
+        return self.log_q(params, samples)
 
     def constrain(self, z):
         return self.model.constrain(z)
