@@ -33,79 +33,316 @@ def update_hparams(model, hparams):
 
     hparams['step_size'] = hparams['step_size']/hparams['latent_dim']
 
-def update_hparams_method(hparams):
-    if hparams['method'] == 'advi':
+def get_recipe_hparams(method, hparams):
+    if method == 'advi':
         hparams.update({
-                'advi_use' : True,
-                'advi_adapt_step_size' : True,
-                'advi_adapt_step_size_range' : [100, 10, 1, 0.1, 0.01],
-                'advi_step_size' : 1,
-                'vi_family' : "gaussian",
-                'grad_estimator' : "closed-form-entropy",
-                'optimizer' : 'advi',
-                'advi_convergence_threshold' : 0.001,
-                'advi_adapt_step_size_num_iters' : 100,
-                'advi_adapt_step_size_verbose' : False,
-                'M_iw_train' : 1,
-                'LI' : False,
+                'advi_use':True,
+                'advi_convergence_threshold':0.001,
+                'advi_step_size':1,
+                'advi_adapt_step_size':True,
+                'advi_adapt_step_size_range':[100, 10, 1, 0.1, 0.01],
+                'advi_adapt_step_size_verbose':False,
+                'advi_adapt_step_size_num_iters':200,
+                'advi_callback_iteration':2,
+
+                'vi_family':"gaussian",
+                'grad_estimator':"closed-form-entropy",
+                'optimizer':'advi',
+                'M_iw_train':1,
+
+                'LI':False,
                 'per_iter_sample_budget':100,
                 'max_iters':100,
 
             })
 
-    elif hparams['method'] == 'gaussian':
+    elif method == 'fullrank':
         hparams.update({
-                'advi_use' : False,
-                'vi_family' : "gaussian",
-                'grad_estimator' : "DReG",
-                'optimizer' : 'adam',
-                'M_iw_train' : 1,
-                'LI' : False,
-                'step_size_exp' : 2,
-                'per_iter_sample_budget':100,
+                'advi_use':False,
+                'vi_family':"gaussian",
+
+                'step_size_exp':0,
+                'step_size_base':0.01,
+                'step_size_scale':4.0,
                 'max_iters':100,
+                'optimizer':'adam',
+                'M_iw_train':1,
+                'grad_estimator':"DReG",
+                'per_iter_sample_budget':100,
+
+                'LI':False,
+
+                'evaluation_fn':"IWELBO"
 
             })
 
-    elif hparams['method'] == 'meanfield':
+    elif method == 'meanfield':
         hparams.update({
-                'advi_use' : False,
-                'vi_family' : "diagonal",
-                'grad_estimator' : "DReG",
-                'optimizer' : 'adam',
-                'M_iw_train' : 1,
-                'LI' : False,
-                'step_size_exp' : 2,
-                'per_iter_sample_budget':100,
+
+                'advi_use':False,
+                'vi_family':"diagonal",
+
+                'step_size_exp':0,
+                'step_size_base':0.01,
+                'step_size_scale':4.0,
                 'max_iters':100,
+                'optimizer':'adam',
+                'M_iw_train':1,
+                'grad_estimator':"DReG",
+                'per_iter_sample_budget':100,
+
+                'LI':False,
+                
+                'evaluation_fn':"IWELBO"
 
             })
 
-    elif hparams['method'] == 'flows':
+    elif method == 'flows':
         hparams.update({
-                'advi_use' : False,
-                'vi_family' : "rnvp",
-                'grad_estimator' : "DReG",
-                'optimizer' : 'adam',
-                'M_iw_train' : 1,
-                'LI' : False,
-                'step_size_exp' : 2,
-                'per_iter_sample_budget':100,
+
+                'advi_use':False,
+                'vi_family':"rnvp",
+
+                'step_size_exp':0,
+                'step_size_base':0.01,
+                'step_size_scale':4.0,
                 'max_iters':100,
+                'optimizer':'adam',
+                'M_iw_train':1,
+                'grad_estimator':"DReG",
+                'per_iter_sample_budget':100,
+
+                'LI':False,
+                
+                'evaluation_fn':"IWELBO"
+
                 'rnvp_num_transformations': 10,
-                'rnvp_num_hidden_units': 8,
+                'rnvp_num_hidden_units': 16,
                 'rnvp_num_hidden_layers': 2,
                 'rnvp_params_init_scale': 0.01
 
             })
 
+    elif method == 'method 0':
+        hparams.update({
 
-    elif hparams['method'] == 'custom':
-        pass
+                'advi_use':False,
+                'vi_family':"gaussian",
+
+                'step_size_exp':0,
+                'step_size_base':0.01,
+                'step_size_scale':4.0,
+                'max_iters':100,
+                'optimizer':'adam',
+                'M_iw_train':1,
+                'grad_estimator':"closed-form-entropy",
+                'per_iter_sample_budget':100,
+
+                'LI':False,
+                
+                'evaluation_fn':"IWELBO"
+
+            })
+
+    elif method == 'method 1':
+        hparams.update({
+
+                'advi_use':False,
+                'vi_family':"gaussian",
+
+                'step_size_exp':0,
+                'step_size_base':0.01,
+                'step_size_scale':4.0,
+                'max_iters':100,
+                'optimizer':'adam',
+                'M_iw_train':1,
+                'grad_estimator':"STL",
+                'per_iter_sample_budget':100,
+
+                'LI':False,
+                
+                'evaluation_fn':"IWELBO"
+
+            })
+
+    elif method == 'method 2':
+        hparams.update({
+
+                'advi_use':False,
+                'vi_family':"gaussian",
+
+                'step_size_exp':0,
+                'step_size_base':0.01,
+                'step_size_scale':4.0,
+                'max_iters':100,
+                'optimizer':'adam',
+                'M_iw_train':1,
+                'grad_estimator':"STL",
+                'per_iter_sample_budget':100,
+
+                'LI':True,
+                "LI_max_iters":2000,
+                "LI_epsilon":1e-6,
+
+                'evaluation_fn':"IWELBO"
+
+            })
+
+    elif method == 'method 3a':
+        warnings.warn("""Use IW-sampling at inference to follow Method 3a from the paper. 
+            Set M_iw_sample = 10""")
+        hparams.update({
+
+                'advi_use':False,
+                'vi_family':"gaussian",
+
+                'step_size_exp':0,
+                'step_size_base':0.01,
+                'step_size_scale':4.0,
+                'max_iters':100,
+                'optimizer':'adam',
+                'M_iw_train':1,
+                'grad_estimator':"STL",
+                'per_iter_sample_budget':100,
+
+                'LI':False,
+
+                'evaluation_fn':"IWELBO"
+
+            })
+
+    elif method == 'method 3b':
+        hparams.update({
+
+                'advi_use':False,
+                'vi_family':"gaussian",
+
+                'step_size_exp':0,
+                'step_size_base':0.01,
+                'step_size_scale':4.0,
+                'max_iters':100,
+                'optimizer':'adam',
+                'M_iw_train':10,
+                'grad_estimator':"DReG",
+                'per_iter_sample_budget':100,
+
+                'LI':False,
+
+                'evaluation_fn':"IWELBO"
+
+            })
+
+    elif method == 'method 4a':
+        hparams.update({
+
+                'advi_use':False,
+                'vi_family':"rnvp",
+
+                'step_size_exp':0,
+                'step_size_base':0.01,
+                'step_size_scale':4.0,
+                'max_iters':100,
+                'optimizer':'adam',
+                'M_iw_train':1,
+                'grad_estimator':"Total-gradient",
+                'per_iter_sample_budget':100,
+
+                'LI':False,
+                
+                'evaluation_fn':"IWELBO"
+
+                'rnvp_num_transformations': 10,
+                'rnvp_num_hidden_units': 32,
+                'rnvp_num_hidden_layers': 2,
+                'rnvp_params_init_scale': 0.01
+
+            })
+
+    elif method == 'method 4b':
+        hparams.update({
+
+                'advi_use':False,
+                'vi_family':"rnvp",
+
+                'step_size_exp':0,
+                'step_size_base':0.01,
+                'step_size_scale':4.0,
+                'max_iters':100,
+                'optimizer':'adam',
+                'M_iw_train':1,
+                'grad_estimator':"DReG",
+                'per_iter_sample_budget':100,
+
+                'LI':False,
+                
+                'evaluation_fn':"IWELBO"
+
+                'rnvp_num_transformations': 10,
+                'rnvp_num_hidden_units': 32,
+                'rnvp_num_hidden_layers': 2,
+                'rnvp_params_init_scale': 0.01
+
+            })
+
+    elif method == 'method 4c':
+        warnings.warn("""Use IW-sampling at inference to follow Method 4c from the paper. 
+            Set M_iw_sample = 10""")
+        hparams.update({
+
+                'advi_use':False,
+                'vi_family':"rnvp",
+
+                'step_size_exp':0,
+                'step_size_base':0.01,
+                'step_size_scale':4.0,
+                'max_iters':100,
+                'optimizer':'adam',
+                'M_iw_train':1,
+                'grad_estimator':"DReG",
+                'per_iter_sample_budget':100,
+
+                'LI':False,
+                
+                'evaluation_fn':"IWELBO"
+
+                'rnvp_num_transformations': 10,
+                'rnvp_num_hidden_units': 32,
+                'rnvp_num_hidden_layers': 2,
+                'rnvp_params_init_scale': 0.01
+
+            })
+
+    elif method == 'method 4d':
+        hparams.update({
+
+                'advi_use':False,
+                'vi_family':"rnvp",
+
+                'step_size_exp':0,
+                'step_size_base':0.01,
+                'step_size_scale':4.0,
+                'max_iters':100,
+                'optimizer':'adam',
+                'M_iw_train':10,
+                'grad_estimator':"DReG",
+                'per_iter_sample_budget':100,
+
+                'LI':False,
+                
+                'evaluation_fn':"IWELBO"
+
+                'rnvp_num_transformations': 10,
+                'rnvp_num_hidden_units': 32,
+                'rnvp_num_hidden_layers': 2,
+                'rnvp_params_init_scale': 0.01
+
+            })
 
     else:
         raise NotImplementedError(f"""Method not unsupported. Expected one of 
-            ['advi', 'flows', 'gaussian', 'meanfield', 'custom'], but got {hparams['method']}
+            ['advi', 'fullrank', 'meanfield', 'flows', 
+            'method 0', 'method 1', 'method 2', 'method 3b', 'method 3a', 
+            'method 4a', 'method 4b', 'method 4c', method 4d'], but got {method}
             """)
 
 
@@ -177,7 +414,7 @@ def get_laplaces_init_params(log_p, z_len, num_epochs, ε = 1e-4):
                     options={'maxiter':num_epochs, 'disp':True})
 
     mu = rez.x
-    H = Hessian_finite_differences(z = mu, grad_f = autograd.grad(lambda z : log_p(z)),\
+    H = Hessian_finite_differences(z = mu, grad_f = autograd.grad(lambda z:log_p(z)),\
                                     ε = ε)
 
     try :
@@ -270,7 +507,7 @@ def get_callback_arg_dict(hparams):
         buffer_len = np.int(max(0.01*hparams['max_iters']/hparams['advi_callback_iteration'] , 2))
         delta_results = collections.deque(maxlen = buffer_len)
 
-        return {"delta_results" : delta_results, "hparams" : hparams}
+        return {"delta_results":delta_results, "hparams":hparams}
 
     else:
 
@@ -329,8 +566,8 @@ def get_adapted_step_size(objective_grad, eval_function, init_params, \
 
                 assert(best_step_size!= 0)
 
-                print("Best step_size found, best step_size : ", best_step_size)
-                print("Best step_size found, best elbo : ", best_elbo)
+                print("Best step_size found, best step_size:", best_step_size)
+                print("Best step_size found, best elbo:", best_elbo)
 
                 return best_step_size
 
@@ -345,8 +582,8 @@ def get_adapted_step_size(objective_grad, eval_function, init_params, \
 
                     if candidate_elbo > init_elbo:
 
-                        print("Best step_size found, best step_size : ", best_step_size)
-                        print("Best step_size found, best elbo : ", best_elbo)
+                        print("Best step_size found, best step_size:", best_step_size)
+                        print("Best step_size found, best elbo:", best_elbo)
 
                         return best_step_size
 
@@ -604,25 +841,25 @@ def print_hparams(hparams):
     # print the common relevant hparams
     for k, i in hparams.items():
         if k in common_hparams:
-            print(f"{k} : {i}") 
+            print(f"{k}:{i}") 
 
     if hparams['method'] == 'advi':
         # print the advi relevant hparams
         for k, i in hparams.items():
             if ('advi' in k):
-                print(f"{k} : {i}")
+                print(f"{k}:{i}")
     elif hparams['method'] in ['gaussian', 'flows', 'meanfield']:
         # print the other relevant hparams
         for k, i in hparams.items():
             if (k.startswith("step")):
-                print(f"{k} : {i}")
+                print(f"{k}:{i}")
             if (k.startswith("rnvp")) & (hparams['method'] == 'flows'):
-                print(f"{k} : {i}")
+                print(f"{k}:{i}")
     elif hparams['method'] == 'custom':
             # print the remaining hparams for custom
             for k, i in hparams.items():
                 if k not in common_hparams:
-                    print(f"{k} : {i}") 
+                    print(f"{k}:{i}") 
 
     else:
         raise ValueError("Method should be one of ['custom', 'advi', 'gaussian', 'rnvp', 'meanfield']")

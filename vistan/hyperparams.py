@@ -1,7 +1,7 @@
-hparams_dict = {
+default_hparams_dict = {
 	
 
-    "seed" : 11,
+    "seed":11,
     
     ##################################################################
     #  Methods 
@@ -12,7 +12,7 @@ hparams_dict = {
     #       choosing a method gives your some default hyper-parameter settings
     #       choosing a method will change the values for other relevant 
     #       hyper-parameters; however, choosing 'custom', will leave them as is.
-    "method" : "meanfield",
+    "method":"meanfield",
 
     ##################################################################
     #  ADVI hparams
@@ -38,19 +38,19 @@ hparams_dict = {
     #       The number of iterations to use for each step-size candidate, ADVI greedily chooses
     #       the maximum step-size based on the final ELBO value after 'advi_adapt_step_size_num_iters'
     #       iterations.
-    # advi_callback_iterations (int): 
+    # advi_callback_iterations (int):
     #       # of iterations after which ELBO is evaluated. This evaluation is then used to monitor 
     #       convergence by monitoring the mean and the median of relative tolerance within a 
     #       window of values. The length of this window (circular buffer) is heuristically determined. 
 
-    "advi_use": False,
-    'advi_convergence_threshold' : 0.001, 
-    "advi_step_size": 0.01,
-    "advi_adapt_step_size_range": [0.1, 0.01],
-    "advi_adapt_step_size": True,
-    'advi_adapt_step_size_verbose': False, 
-    'advi_adapt_step_size_num_iters': 20, 
-    'advi_callback_iteration': 2,
+    "advi_use":False,
+    'advi_convergence_threshold':0.001, 
+    "advi_step_size":0.01,
+    "advi_adapt_step_size":True,
+    "advi_adapt_step_size_range":[0.1, 0.01],
+    'advi_adapt_step_size_verbose':False, 
+    'advi_adapt_step_size_num_iters':20, 
+    'advi_callback_iteration':2,
 
     ##################################################################
     #  Optimization
@@ -90,7 +90,7 @@ hparams_dict = {
     #       # of importance weights during training to optimize the IW-ELBO.
     #       Setting M_iw_train=1 reverts to naive VI (optimizer ELBO).
     #
-    # grad_estimator (string): 
+    # grad_estimator (string):
     #       One of ['DReG', 'STL', 'Total-gradient', 'closed-form-entropy']
     #       Total gradient refers to the regular IW-ELBO gradient. With M_iw_train = 1
     #       this would be same as regular VI. 'closed-form-entropy' works when
@@ -101,13 +101,13 @@ hparams_dict = {
     #       evaluation_fn. If per_iter_sample_budget = 100 and M_iw_train = 10, then we
     #       use 10 copies of IW-ELBO gradient to optimize at each iteration.
 
-    "step_size_base" : 0.1,
-    "step_size_scale" : 4.0,
-    "step_size_exp" : 0, 
-    "max_iters" : 20,
+    "step_size_base":0.01,
+    "step_size_scale":4.0,
+    "step_size_exp":0, 
+    "max_iters":100,
     "optimizer":"adam" ,
-    "M_iw_train"  : 2, 
-    "grad_estimator": "DReG", 
+    "M_iw_train":1, 
+    "grad_estimator":"DReG", 
     "per_iter_sample_budget":100, 
 
     ##################################################################
@@ -123,55 +123,55 @@ hparams_dict = {
     #       If set to IW-ELBO, it uses the same M as M_iw_train
     #       If set to ELBO-cfe, it monitors the ELBO using the closed-form entropy function
 
-    "evaluation_fn" : "IWELBO",
+    "evaluation_fn":"IWELBO",
 
     ##################################################################
     #  VI Families
     ##################################################################
     #
-    #  "vi_family" (string): 
+    #  "vi_family" (string):
     #       One of ["rnvp", "gaussian", "diagonal"]
 
-    "vi_family" : "gaussian",
+    "vi_family":"gaussian",
 
     ##################################################################
     #  RealNVP
     ##################################################################
     #
-    # rnvp_num_transformations (int): 
+    # rnvp_num_transformations (int):
     #       # of coupling transforms; each transforms includes two transitions
     #
-    # rnvp_num_hidden_layers (int): 
+    # rnvp_num_hidden_layers (int):
     #       # of hidden layers within s-t block
     #
-    # rnvp_num_hidden_units (int): 
+    # rnvp_num_hidden_units (int):
     #       # of units in each hidden layer
     #
-    # params_init_scale (int): 
+    # params_init_scale (int):
     #       scaling to help initializes to standard normal approximately
 
-    "rnvp_num_transformations" : 10,
-    "rnvp_num_hidden_units" : 32,
-    "rnvp_num_hidden_layers" : 2,
-    "rnvp_params_init_scale" : 0.01,
+    "rnvp_num_transformations":10,
+    "rnvp_num_hidden_units":16,
+    "rnvp_num_hidden_layers":2,
+    "rnvp_params_init_scale":0.01,
 
 
     ##################################################################
-    #  LI: Laplace's Initialization
+    #  LI:Laplace's Initialization
     ##################################################################
     #
-    # LI (bool): 
+    # LI (bool):
     #       Default is False. If True, initializes the Gaussian parameters to 
     #       Laplace's approximation. Do not use LI with real-NVP
     #
     # LI_max_iters (int):
     #       Default is 2000. # of iterations for MAP estimate used by scipy.optimize.minimize
     #
-    # LI_epsilon (float): 
+    # LI_epsilon (float):
     #       Default is 1e-6. A small positive used to calculate Hessian at MAP
     #       estimate using finite differences.
 
-    "LI" : False,
+    "LI":False,
     "LI_max_iters":2000,
     "LI_epsilon":1e-6,
 }

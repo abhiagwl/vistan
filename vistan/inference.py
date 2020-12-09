@@ -8,7 +8,7 @@ import vistan.interface as interface
 import vistan.utilities as utils
 import vistan.hyperparams as hyperparams
 
-def recipes(method='meanfield'):
+def recipe(method='meanfield'):
     """
         A function to easily run default variational methods--recipes.
 
@@ -32,7 +32,8 @@ def recipes(method='meanfield'):
         -------
         'inference' function with modified hyper-parameters locked into it.
     """
-    hparams = utils.get_recipe_hparams(method)
+    default_hparams = hyperparams.default_hparams_dict.copy()
+    hparams = utils.get_recipe_hparams(method, default_hparams)
     return functools,partial(inference, hparams = hparams)
 
 def algorithm(**kwargs):
@@ -185,7 +186,7 @@ def algorithm(**kwargs):
         'inference' function with modified hyper-parameters locked into it.
     """
 
-    hparams = hyperparams.hparams_dict.copy()
+    hparams = hyperparams.default_hparams_dict.copy()
 
     for k in kwargs.keys():
         if k not in hparams.keys():
