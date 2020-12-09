@@ -105,7 +105,7 @@ def modify_objective_eval_fn(objective, evaluation_fn,\
         m_objective = functools.partial(m_objective, entropy_q = var_dist.entropy)
 
     if hyper_params['evaluation_fn'] == "ELBO-cfe":
-        m_objective = functools.partial(m_objective, entropy_q = var_dist.entropy)
+        m_evaluation_fn = functools.partial(m_evaluation_fn, entropy_q = var_dist.entropy)
 
     # Augment the objective definition to match the Autograd's optimizer template  
     return lambda params,t : -m_objective(params), m_evaluation_fn

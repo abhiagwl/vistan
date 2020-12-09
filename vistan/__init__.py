@@ -1,1 +1,1 @@
-from .inference import algorithm
+from .inference import algorithm, recipe

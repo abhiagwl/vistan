@@ -5,6 +5,8 @@ import collections
 import warnings
 import vistan.utilities as utils
 
+warnings.formatwarning = utils.warning_on_one_line
+
 class Dist():
 
     def __init__(self, zlen):
@@ -400,7 +402,7 @@ class Posterior():
 
         warnings.warn("""
             log_prob function returns the log density of the unconstrained base q distribution
-            used during optimization. If you trained with M_iw_train > 1, then this different 
+            used during optimization. If you trained with M_iw_train > 1, then this is different 
             than the log_prob of the posterior. 
 
             Please, see https://arxiv.org/pdf/1808.09034 for more details.  

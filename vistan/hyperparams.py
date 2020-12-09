@@ -65,11 +65,12 @@ default_hparams_dict = {
     #       Default value is 0 
     #
     # step_size (float):
-    #       Default value is 0.1 
-    #       step_size = step_size_base/(step_size_scale**step_size_exp)
-    #       To try custom step_sizes, use the step_size_base attribute
+    #       Default value is 0.01 
+    #       If comprehensive_step_search_scaling is on, than this overriden by
+    #       step_size = (step_size_base/(step_size_scale**step_size_exp))/# of z_dims
     #
     # step_size_exp_range (iterable):
+    #       Not supported right now.
     #       Default value is [0,1,2,3]
     #       For comprehensive step-search, we optimize for different step_sizes,
     #       where the different step_sizes are generated using step_size_exp_range.
@@ -100,10 +101,18 @@ default_hparams_dict = {
     #       Fixes the # of samples used at each iteration to calculate the gradient and the 
     #       evaluation_fn. If per_iter_sample_budget = 100 and M_iw_train = 10, then we
     #       use 10 copies of IW-ELBO gradient to optimize at each iteration.
+    #
+    # comprehensive_step_search_scaling (bool):
+    #       Default is False. If True, will scale the step-size using the heuristic used 
+    #       in the paper https://arxiv.org/pdf/2006.10343.pdf. If False, it will use the 'step_size'
+    #       as is. 
 
+    "step_size":0.01,
+    "comprehensive_step_search_scaling":False,
     "step_size_base":0.01,
     "step_size_scale":4.0,
     "step_size_exp":0, 
+    "step_size_exp_range":[0,1,2,3], 
     "max_iters":100,
     "optimizer":"adam" ,
     "M_iw_train":1, 
@@ -174,4 +183,17 @@ default_hparams_dict = {
     "LI":False,
     "LI_max_iters":2000,
     "LI_epsilon":1e-6,
+
+    ##################################################################
+    #  Other flexibilities
+    ##################################################################
+    #
+    # fix_sample_budget (bool):
+    #       Default is False. If False, will increase the per_iter_sample budget
+    #       by M_iw_train times as this sets the 'num_copies_training' parameter
+    #       to be same as 'per_iter_sample_budget'.  The final number of samples at 
+    #       each iteration is (num_copies_training, M_iw_train). If True, this will 
+    #       set num_copies_train = per_iter_sample_budget//M_iw_train
+    #
+    "fix_sample_budget":False,
 }

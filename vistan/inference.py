@@ -33,8 +33,8 @@ def recipe(method='meanfield'):
         'inference' function with modified hyper-parameters locked into it.
     """
     default_hparams = hyperparams.default_hparams_dict.copy()
-    hparams = utils.get_recipe_hparams(method, default_hparams)
-    return functools,partial(inference, hparams = hparams)
+    utils.get_recipe_hparams(method, default_hparams)
+    return functools.partial(inference, hparams = default_hparams)
 
 def algorithm(**kwargs):
     """
@@ -85,6 +85,16 @@ def algorithm(**kwargs):
             Optimization
             --------------- 
 
+            step_size (float):
+                Default value is 0.1 
+                step_size = step_size_base/(step_size_scale**step_size_exp)
+                To try custom step_sizes, use the step_size_base attribute
+
+            comprehensive_step_search_scaling (bool):
+                Default is False. If True, will scale the step-size using the heuristic used 
+                in the paper https://arxiv.org/pdf/2006.10343.pdf. If False, it will use the 'step_size'
+                as is. 
+
             step_size_base (float):
                 Default value is 0.1. 
             
@@ -94,13 +104,8 @@ def algorithm(**kwargs):
             step_size_exp (int):
                 Default value is 0 
             
-            step_size (float):
-                Default value is 0.1 
-                step_size = step_size_base/(step_size_scale**step_size_exp)
-                To try custom step_sizes, use the step_size_base attribute
-            
             step_size_exp_range (iterable):
-                Default value is [0,1,2,3]
+                Default value is [0,1,2,3]. This is currently not supported.
                 For comprehensive step-search, we optimize for different step_sizes,
                 where the different step_sizes are generated using step_size_exp_range.
                 Comprehensive step-search is not supported right now.
@@ -179,6 +184,18 @@ def algorithm(**kwargs):
             LI_epsilon (float): 
                 Default is 1e-6. A small positive used to calculate Hessian at MAP
                 estimate using finite differences.
+
+            --------------------
+            Other flexibilities
+            --------------------
+
+            fix_sample_budget (bool):
+                Default is True. If False, will increase the per_iter_sample budget
+                by M_iw_train times. This sets the 'num_copies_training' parameter
+                to be same as 'per_iter_sample_budget' which combined with 'M_iw_train'
+                decides the final number of samples at each iteration (num_copies_training, M_iw_train)
+
+
 
         Returns
         -------

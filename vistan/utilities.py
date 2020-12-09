@@ -15,6 +15,12 @@ import autograd.numpy.random as npr
 import autograd.misc.optimizers as optim
 import tqdm.auto
 import tqdm
+
+def warning_on_one_line(message, category, filename, lineno, file=None, line=None):
+        return '%s:%s\n' % (category.__name__, message)
+
+warnings.formatwarning = warning_on_one_line
+
 ########################################################################################
 ######################### Generic Inference Utilities ###############################
 ########################################################################################
@@ -22,16 +28,18 @@ def update_hparams(model, hparams):
     hparams['latent_dim'] = model.zlen
 
     # update_hparams_method(hparams)
-
-    hparams['num_copies_training'] = (hparams['per_iter_sample_budget']//
+    if hparams['fix_sample_budget']:
+        hparams['num_copies_training'] = (hparams['per_iter_sample_budget']//
                                 hparams['M_iw_train'])
+    else:
+        hparams['num_copies_training'] = hparams['per_iter_sample_budget']
     # If advi is not used, then we follow the the step-size scaling 
     # scheme of Agrawal et al. 2020 
+    if hparams['comprehensive_step_search_scaling']:
+        hparams['step_size'] = hparams['step_size_base']/\
+                                    (hparams['step_size_scale']**hparams['step_size_exp'])
+        hparams['step_size'] = hparams['step_size']/hparams['latent_dim']
 
-    hparams['step_size'] = hparams['step_size_base']/\
-                                (hparams['step_size_scale']**hparams['step_size_exp'])
-
-    hparams['step_size'] = hparams['step_size']/hparams['latent_dim']
 
 def get_recipe_hparams(method, hparams):
     if method == 'advi':
@@ -54,6 +62,12 @@ def get_recipe_hparams(method, hparams):
                 'per_iter_sample_budget':100,
                 'max_iters':100,
 
+                'evaluation_fn':'ELBO-cfe',
+
+                'fix_sample_budget':False,
+                "comprehensive_step_search_scaling":False,
+
+
             })
 
     elif method == 'fullrank':
@@ -61,9 +75,8 @@ def get_recipe_hparams(method, hparams):
                 'advi_use':False,
                 'vi_family':"gaussian",
 
-                'step_size_exp':0,
-                'step_size_base':0.01,
-                'step_size_scale':4.0,
+                "comprehensive_step_search_scaling":False,
+                'step_size':0.01,
                 'max_iters':100,
                 'optimizer':'adam',
                 'M_iw_train':1,
@@ -72,7 +85,10 @@ def get_recipe_hparams(method, hparams):
 
                 'LI':False,
 
-                'evaluation_fn':"IWELBO"
+                'evaluation_fn':"IWELBO",
+
+                'fix_sample_budget':False,
+
 
             })
 
@@ -82,9 +98,8 @@ def get_recipe_hparams(method, hparams):
                 'advi_use':False,
                 'vi_family':"diagonal",
 
-                'step_size_exp':0,
-                'step_size_base':0.01,
-                'step_size_scale':4.0,
+                "comprehensive_step_search_scaling":False,
+                'step_size':0.01,
                 'max_iters':100,
                 'optimizer':'adam',
                 'M_iw_train':1,
@@ -93,7 +108,9 @@ def get_recipe_hparams(method, hparams):
 
                 'LI':False,
                 
-                'evaluation_fn':"IWELBO"
+                'evaluation_fn':"IWELBO",
+
+                'fix_sample_budget':False,
 
             })
 
@@ -103,9 +120,8 @@ def get_recipe_hparams(method, hparams):
                 'advi_use':False,
                 'vi_family':"rnvp",
 
-                'step_size_exp':0,
-                'step_size_base':0.01,
-                'step_size_scale':4.0,
+                "comprehensive_step_search_scaling":False,
+                'step_size':0.01,
                 'max_iters':100,
                 'optimizer':'adam',
                 'M_iw_train':1,
@@ -114,13 +130,14 @@ def get_recipe_hparams(method, hparams):
 
                 'LI':False,
                 
-                'evaluation_fn':"IWELBO"
+                'evaluation_fn':"IWELBO",
 
                 'rnvp_num_transformations': 10,
                 'rnvp_num_hidden_units': 16,
                 'rnvp_num_hidden_layers': 2,
-                'rnvp_params_init_scale': 0.01
+                'rnvp_params_init_scale': 0.01,
 
+                'fix_sample_budget':False,
             })
 
     elif method == 'method 0':
@@ -129,6 +146,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use':False,
                 'vi_family':"gaussian",
 
+                "comprehensive_step_search_scaling":True,
                 'step_size_exp':0,
                 'step_size_base':0.01,
                 'step_size_scale':4.0,
@@ -140,7 +158,9 @@ def get_recipe_hparams(method, hparams):
 
                 'LI':False,
                 
-                'evaluation_fn':"IWELBO"
+                'evaluation_fn':"IWELBO",
+
+                'fix_sample_budget':True,
 
             })
 
@@ -150,6 +170,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use':False,
                 'vi_family':"gaussian",
 
+                "comprehensive_step_search_scaling":True,
                 'step_size_exp':0,
                 'step_size_base':0.01,
                 'step_size_scale':4.0,
@@ -161,7 +182,9 @@ def get_recipe_hparams(method, hparams):
 
                 'LI':False,
                 
-                'evaluation_fn':"IWELBO"
+                'evaluation_fn':"IWELBO",
+
+                'fix_sample_budget':True,
 
             })
 
@@ -171,6 +194,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use':False,
                 'vi_family':"gaussian",
 
+                "comprehensive_step_search_scaling":True,
                 'step_size_exp':0,
                 'step_size_base':0.01,
                 'step_size_scale':4.0,
@@ -184,18 +208,20 @@ def get_recipe_hparams(method, hparams):
                 "LI_max_iters":2000,
                 "LI_epsilon":1e-6,
 
-                'evaluation_fn':"IWELBO"
+                'evaluation_fn':"IWELBO",
+
+                'fix_sample_budget':True,
 
             })
 
     elif method == 'method 3a':
-        warnings.warn("""Use IW-sampling at inference to follow Method 3a from the paper. 
-            Set M_iw_sample = 10""")
+        warnings.warn("Use IW-sampling at inference to follow Method 3a from the paper. Set M_iw_sample = 10")
         hparams.update({
 
                 'advi_use':False,
                 'vi_family':"gaussian",
 
+                "comprehensive_step_search_scaling":True,
                 'step_size_exp':0,
                 'step_size_base':0.01,
                 'step_size_scale':4.0,
@@ -204,10 +230,11 @@ def get_recipe_hparams(method, hparams):
                 'M_iw_train':1,
                 'grad_estimator':"STL",
                 'per_iter_sample_budget':100,
-
                 'LI':False,
 
-                'evaluation_fn':"IWELBO"
+                'evaluation_fn':"IWELBO",
+
+                'fix_sample_budget':True,
 
             })
 
@@ -217,6 +244,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use':False,
                 'vi_family':"gaussian",
 
+                "comprehensive_step_search_scaling":True,
                 'step_size_exp':0,
                 'step_size_base':0.01,
                 'step_size_scale':4.0,
@@ -228,7 +256,9 @@ def get_recipe_hparams(method, hparams):
 
                 'LI':False,
 
-                'evaluation_fn':"IWELBO"
+                'evaluation_fn':"IWELBO",
+
+                'fix_sample_budget':True,
 
             })
 
@@ -238,6 +268,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use':False,
                 'vi_family':"rnvp",
 
+                "comprehensive_step_search_scaling":True,
                 'step_size_exp':0,
                 'step_size_base':0.01,
                 'step_size_scale':4.0,
@@ -249,13 +280,14 @@ def get_recipe_hparams(method, hparams):
 
                 'LI':False,
                 
-                'evaluation_fn':"IWELBO"
+                'evaluation_fn':"IWELBO",
 
                 'rnvp_num_transformations': 10,
                 'rnvp_num_hidden_units': 32,
                 'rnvp_num_hidden_layers': 2,
-                'rnvp_params_init_scale': 0.01
+                'rnvp_params_init_scale': 0.01,
 
+                'fix_sample_budget':True,
             })
 
     elif method == 'method 4b':
@@ -264,6 +296,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use':False,
                 'vi_family':"rnvp",
 
+                "comprehensive_step_search_scaling":True,
                 'step_size_exp':0,
                 'step_size_base':0.01,
                 'step_size_scale':4.0,
@@ -275,23 +308,26 @@ def get_recipe_hparams(method, hparams):
 
                 'LI':False,
                 
-                'evaluation_fn':"IWELBO"
+                'evaluation_fn':"IWELBO",
 
                 'rnvp_num_transformations': 10,
                 'rnvp_num_hidden_units': 32,
                 'rnvp_num_hidden_layers': 2,
-                'rnvp_params_init_scale': 0.01
+                'rnvp_params_init_scale': 0.01,
+
+
+                'fix_sample_budget':True,
 
             })
 
     elif method == 'method 4c':
-        warnings.warn("""Use IW-sampling at inference to follow Method 4c from the paper. 
-            Set M_iw_sample = 10""")
+        warnings.warn("Use IW-sampling at inference to follow Method 4c from the paper. Set M_iw_sample = 10")
         hparams.update({
 
                 'advi_use':False,
                 'vi_family':"rnvp",
 
+                "comprehensive_step_search_scaling":True,
                 'step_size_exp':0,
                 'step_size_base':0.01,
                 'step_size_scale':4.0,
@@ -303,12 +339,14 @@ def get_recipe_hparams(method, hparams):
 
                 'LI':False,
                 
-                'evaluation_fn':"IWELBO"
+                'evaluation_fn':"IWELBO",
 
                 'rnvp_num_transformations': 10,
                 'rnvp_num_hidden_units': 32,
                 'rnvp_num_hidden_layers': 2,
-                'rnvp_params_init_scale': 0.01
+                'rnvp_params_init_scale': 0.01,
+
+                'fix_sample_budget':True,
 
             })
 
@@ -318,6 +356,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use':False,
                 'vi_family':"rnvp",
 
+                "comprehensive_step_search_scaling":True,
                 'step_size_exp':0,
                 'step_size_base':0.01,
                 'step_size_scale':4.0,
@@ -329,20 +368,21 @@ def get_recipe_hparams(method, hparams):
 
                 'LI':False,
                 
-                'evaluation_fn':"IWELBO"
+                'evaluation_fn':"IWELBO",
 
                 'rnvp_num_transformations': 10,
                 'rnvp_num_hidden_units': 32,
                 'rnvp_num_hidden_layers': 2,
-                'rnvp_params_init_scale': 0.01
+                'rnvp_params_init_scale': 0.01,
 
+                'fix_sample_budget':True,
             })
 
     else:
         raise NotImplementedError(f"""Method not unsupported. Expected one of 
             ['advi', 'fullrank', 'meanfield', 'flows', 
             'method 0', 'method 1', 'method 2', 'method 3b', 'method 3a', 
-            'method 4a', 'method 4b', 'method 4c', method 4d'], but got {method}
+            'method 4a', 'method 4b', 'method 4c', method 4d'], but got '{method}'
             """)
 
 
@@ -735,6 +775,7 @@ def get_LI_params(hparams, model, code, model_name):
                                         ε = hparams['LI_epsilon'],\
                                         model_name = model_name,
                                         model_code = code)
+        return init_params
     except:
         print("Error occurred trying to generate Laplace's Initialization parameters.")
 
