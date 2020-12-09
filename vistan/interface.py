@@ -146,7 +146,7 @@ class Model:
             with utils.suppress_stdout_stderr(False):
                 self.fit = self.sm.sampling(data=self.data, iter=100, chains=1, init=0)
         except:
-            print('Error occurred during a sampling check for complied model.')
+            print('Error occurred during a sampling check for compiled model.')
             print('Could not sample for ' + model_code)
             raise 
 

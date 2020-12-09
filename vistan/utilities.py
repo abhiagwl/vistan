@@ -487,6 +487,20 @@ def get_step_size(hparams):
         return hparams['advi_step_size']
     return hparams['step_size']
 
+def get_LI_params(hparams, model, code, model_name):
+    # update the initial parameters to LI params
+    assert "gaussian" in hparams['vi_family'] 
+    try:
+        with suppress_stdout_stderr(False):
+            init_params = get_laplaces_init (log_p = model.log_prob, \
+                                        z_len = hparams['latent_dim'], \
+                                        num_epochs = hparams['LI_max_iters'], \
+                                        ε = hparams['LI_epsilon'],\
+                                        model_name = model_name,
+                                        model_code = code)
+    except:
+        print("Error occurred trying to generate Laplace's Initialization parameters.")
+
 
 def get_optimizer(hparams):
 

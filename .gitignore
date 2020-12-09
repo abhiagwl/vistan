@@ -1,19 +1,19 @@
-samples
-test-model.pkl
-models
 __pycache__
+*ipynb_checkpoints
+
+# ignoring directories
 data/*
-*test.py
-*.hjson
-*scratchpad.py
-*vi_on_stan.py
+models
+
+# ignoring build essentials
 README.html
-setup.py
 *.egg-info
 build
 dist
 deploy.sh
-readmetest.py
-justest.py
-*ipynb
+
+# Ignore files in the root directory
+/*.py
+/*.ipynb
 notes.md
+
