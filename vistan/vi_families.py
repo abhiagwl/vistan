@@ -302,7 +302,7 @@ class Posterior():
         self.zlen = self.model.zlen
 
 
-    def sample(self, num_samples, params = None, M_iw_sample = None, return_constrained = True):
+    def sample(self, num_samples, *, params = None, M_iw_sample = None, return_constrained = True):
         """
             A function to allows sampling from the posterior.
 
@@ -359,13 +359,11 @@ class Posterior():
             lq = self.log_q(params, samples)
             lR = lp - lq
 
-            final_samples = []
-            for i in range(lR.shape[0]):
-                j = np.argmax(npr.multinomial(1, utils.softmax_matrix(lR[i])))
-                final_samples.append(samples[i,j,:])
+            sampler = np.vectorize(lambda p:  np.random.multinomial(1, p), signature = "(n)->(n)")
+            choices = sampler(utils.softmax_matrix(lR))
+            samples = samples[np.where(choices)]
 
-            samples =  np.array(final_samples).reshape(num_samples, self.zlen)
-
+            assert samples.shape == (num_samples, self.zlen)
         if return_constrained == True:
             return self.constrained_array_to_dict(self.constrain(samples))
         else :
