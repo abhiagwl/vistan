@@ -27,8 +27,8 @@ pip install vistan
 
 ## Usage
 The typical usage of the package would have the following steps:
-1. Create an algorithm.
- - The easiest way is to just use a pre-baked recipe as `algo=vistan.recipe("meanfield")`. There are various options: 
+1. Create an algorithm. This can be done in two wasy:
+ - The easiest is to use a pre-baked recipe as `algo=vistan.recipe('meanfield')`. There are various options: 
     + `'advi'`: Run our implementation of ADVI's PyStan.
     + `'meanfield'`: Full-factorized Gaussia a.k.a meanfield VI
     + `'fullrank'`: Use a full-rank Gaussian for better dependence between latent variables 
@@ -37,7 +37,7 @@ The typical usage of the package would have the following steps:
 - Alternatively, you can create a custom algorithm as `algo=vistan.algorithm()`. Some most frequent arguments:
     + `vi_family`: This can be one of `['gaussian', 'diagonal', 'rnvp']` (Default: `gaussian`)
     + `max_iter`: The maximum number of optimization iterations. (Default: 100)
-    + `optimizer`: This can be `adam` or `advi`. (Default: `adam`)
+    + `optimizer`: This can be `'adam'` or `'advi'`. (Default: `'adam'`)
     + `grad_estimator`: What gradient estimator to use. Can be `Total-gradient`, `STL`, `DReG`, or `closed-form-entropy`. (Default: `DReG`)
     + `M_iw_train`: The number of importance samples. Use 1 for standard variational inference or more for importance-weighted variational inference. (Default: 1)
     + `per_iter_sample_budget`: The total number of evaluations to use in each iteration. (Default: 100)
