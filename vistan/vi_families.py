@@ -286,7 +286,8 @@ def get_var_dist(hyper_params):
                 params_init_scale=hyper_params['rnvp_params_init_scale'],
                 zlen=hyper_params['latent_dim'])
     else:
-        raise NotImplementedError
+        raise NotImplementedError(f"""Expected one of ['gaussian', 'diagonal', 'rnvp'] 
+            but got {hyper_params['vi_family']}.""")
 
     return var_dist
 
