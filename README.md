@@ -6,7 +6,7 @@
   <img src="https://raw.githubusercontent.com/abhiagwl/vistan/master/vistan-example.png" title="A beta-bernoulli example with vistan">
 </p>
 
-`vistan` uses [autograd][1] and [PyStan][2] under the hood, and aims to help you quickly run different variational methods from [Advances in BBVI][3] on Stan models. 
+`vistan` uses [autograd][1] and [PyStan][2] under the hood. The aim is to provide a "petting zoo" to make it easy to play around with the different variational methods discussed in the NeurIPS 20202 paper [Advances in BBVI][3]. 
 
 [1]: https://github.com/HIPS/autograd
 [2]: https://github.com/stan-dev/pystan
