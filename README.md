@@ -6,7 +6,7 @@
   <img src="https://raw.githubusercontent.com/abhiagwl/vistan/master/vistan-example.png" title="A beta-bernoulli example with vistan">
 </p>
 
-`vistan` uses [autograd][1] and [PyStan][2] under the hood. The aim is to provide a "petting zoo" to make it easy to play around with the different variational methods discussed in the NeurIPS 20202 paper [Advances in BBVI][3]. 
+`vistan` uses [autograd][1] and [PyStan][2] under the hood. The aim is to provide a "petting zoo" to make it easy to play around with the different variational methods discussed in the NeurIPS 2020 paper [Advances in BBVI][3]. 
 
 [1]: https://github.com/HIPS/autograd
 [2]: https://github.com/stan-dev/pystan
@@ -45,8 +45,9 @@ The typical usage of the package would have the following steps:
 3. Draw samples from the approximate posterior as `samples=posterior.sample(100)`. You can also draw samples using importance weighting as `posterior.sample(100, M_iw_sample=10)`. Further, you can evaluate the log-probability of the posterior as `posterior.log_prob(latents)`. 
 
 ## Recipes
+Recipies refers to set of predetermined hyperparameters that let you quickly run some common variational algorithms. 
 ### Meanfield Gaussian 
-We provide some default VI algorithm choices which can accessed using `vistan.recipe`   
+`'meanfield'` runs the fully factorized Gaussian VI optimized using `Adam`    
 
 ```python
 import vistan 
@@ -79,6 +80,7 @@ plt.show()
 ```
 
 ### Full-rank Gaussian 
+`'fullrank'`, as the name suggests, optimizes full-rank Gaussian VI using `Adam`
 ```python
 algo = vistan.recipe("fullrank")  
 posterior = algo(code, data)
@@ -93,6 +95,7 @@ plt.show()
 ```
 
 ### Flow-based VI
+`'flows'` optimizes a RealNVP inspired flow distribution for variational approximation using `Adam` 
 ```python
 algo = vistan.recipe("flows")  
 posterior = algo(code, data)
@@ -107,7 +110,7 @@ plt.show()
 ```
 
 ### ADVI
-Our implementation of PyStan's ADVI.
+`'advi'` runs our implementation of PyStan's ADVI and uses their custom step-sequence scheme
 ```python
 algo = vistan.recipe("advi")  
 posterior = algo(code, data)
@@ -121,7 +124,7 @@ plt.show()
 ```
 
 ### Methods from [Advances in BBVI][3]
-Our implementation of different variational methods from the paper. 
+`method x` runs implementation of different variational methods from [Advances in BBVI][3], where `x` is one of `[0, 1, 2, 3a, 3b, 4a, 4b, 4c, 4d]` 
 ```python
 # Try method 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 4d
 algo = vistan.recipe("method 4d")  
