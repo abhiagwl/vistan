@@ -7,6 +7,7 @@ import vistan.utilities as utils
 
 warnings.formatwarning = utils.warning_on_one_line
 
+
 class Dist():
 
     def __init__(self, zlen):
@@ -291,7 +292,7 @@ class Posterior():
 
         self.M_iw_sample = M_iw_sample
         self.params = params
-        self.optimization_trace = results
+        self.optimization_trace, self.optimization_time, self.optimization_num_iters = results
         self.model = model
         self.var_dist = var_dist
 
@@ -358,8 +359,8 @@ class Posterior():
             lp = self.log_p(samples)
             lq = self.log_q(params, samples)
             lR = lp - lq
-
             sampler = np.vectorize(lambda p:  np.random.multinomial(1, p), signature = "(n)->(n)")
+
             choices = sampler(utils.softmax_matrix(lR))
             samples = samples[np.where(choices)]
 

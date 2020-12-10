@@ -8,7 +8,7 @@ import vistan.interface as interface
 import vistan.utilities as utils
 import vistan.hyperparams as hyperparams
 
-def recipe(method='meanfield'):
+def recipe(method='meanfield',*, max_iters = 100):
     """
         A function to easily run default variational methods--recipes.
 
@@ -28,12 +28,15 @@ def recipe(method='meanfield'):
                 Runs a version of flow-based VI using realNVP
             'method x':
                 Runs a vi method as described in the paper https://arxiv.org/pdf/2006.10343.pdf
+        max_iters (int):
+            Changes the default number of iterations in recipes.
         Returns
         -------
         'inference' function with modified hyper-parameters locked into it.
     """
     default_hparams = hyperparams.default_hparams_dict.copy()
     utils.get_recipe_hparams(method, default_hparams)
+    default_hparams["max_iters"] = max_iters
     return functools.partial(inference, hparams = default_hparams)
 
 def algorithm(**kwargs):
