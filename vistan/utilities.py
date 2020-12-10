@@ -186,7 +186,7 @@ def get_recipe_hparams(method, hparams):
                 'per_iter_sample_budget': 100,
 
                 'LI': False,
-                
+
                 'evaluation_fn': "IWELBO",
 
                 'fix_sample_budget': True,
@@ -285,7 +285,7 @@ def get_recipe_hparams(method, hparams):
                 'per_iter_sample_budget': 100,
 
                 'LI': False,
-                
+
                 'evaluation_fn': "IWELBO",
 
                 'rnvp_num_transformations':  10,
@@ -313,7 +313,7 @@ def get_recipe_hparams(method, hparams):
                 'per_iter_sample_budget': 100,
 
                 'LI': False,
-                
+
                 'evaluation_fn': "IWELBO",
 
                 'rnvp_num_transformations':  10,
@@ -345,7 +345,7 @@ def get_recipe_hparams(method, hparams):
                 'per_iter_sample_budget': 100,
 
                 'LI': False,
-                
+
                 'evaluation_fn': "IWELBO",
 
                 'rnvp_num_transformations':  10,
@@ -374,7 +374,7 @@ def get_recipe_hparams(method, hparams):
                 'per_iter_sample_budget': 100,
 
                 'LI': False,
-                
+
                 'evaluation_fn': "IWELBO",
 
                 'rnvp_num_transformations':  10,
@@ -386,9 +386,10 @@ def get_recipe_hparams(method, hparams):
             })
 
     else:
-        raise NotImplementedError(f"""Method not unsupported. Expected one of 
-            ['advi', 'fullrank', 'meanfield', 'flows', 
-            'method 0', 'method 1', 'method 2', 'method 3b', 'method 3a', 
+        raise NotImplementedError(f"""Method not unsupported.
+            Expected one of
+            ['advi', 'fullrank', 'meanfield', 'flows',
+            'method 0', 'method 1', 'method 2', 'method 3b', 'method 3a',
             'method 4a', 'method 4b', 'method 4c', method 4d'],
              but got '{method}'
             """)
@@ -428,7 +429,7 @@ def inv_pos_diag(x):
 
 def inv_pos_tril(x):
     assert x.ndim == 2
-    return np.tril(x, -1) + np.diag(inv_pos_diag(np.diag(x))) 
+    return np.tril(x, -1) + np.diag(inv_pos_diag(np.diag(x)))
 
 
 def mul_iterable(x):
@@ -471,7 +472,7 @@ def get_laplaces_init_params(log_p, z_len, num_epochs, ε=1e-4):
 
     z_0 = npr.rand(z_len)
     # using minimize to maximize
-    val_and_grad = autograd.value_and_grad(lambda z: -log_p(z))  
+    val_and_grad = autograd.value_and_grad(lambda z: -log_p(z))
 
     rez = scipy.optimize.minimize(
                                     val_and_grad, z_0,
@@ -551,13 +552,13 @@ def load_saved_laplaces_init(model_name, model_code):
     return open_pickled_files(file_name)
 
 
-def save_laplaces_init(params,  model_name, model_code):  
+def save_laplaces_init(params,  model_name, model_code):
     dir_name = laplaces_init_dir()
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     dump_pickled_files(
                         filename=laplaces_init_file(
-                                                    dir_name, 
+                                                    dir_name,
                                                     model_name, model_code),
                         objects=params)
 
@@ -738,7 +739,7 @@ def advi_callback(
             ={hparams['M_iw_train']}), current value :{(results[-1])}")
 
         if len(results) > hparams['advi_callback_iteration']:
-            previous_elbo = results[-(hparams['advi_callback_iteration']+1)] 
+            previous_elbo = results[-(hparams['advi_callback_iteration']+1)]
         else:
             previous_elbo = 0.0
 
@@ -811,7 +812,7 @@ def get_step_size(hparams):
 
 def get_LI_params(hparams, model, code, model_name):
     # update the initial parameters to LI params
-    assert "gaussian" in hparams['vi_family'] 
+    assert "gaussian" in hparams['vi_family']
     try:
         with suppress_stdout_stderr(False):
             init_params = get_laplaces_init(
@@ -849,7 +850,7 @@ def get_callback(hparams):
 
     if hparams['advi_use'] == 0:
         return callback
-    else: 
+    else:
         return advi_callback
 
 
@@ -861,7 +862,7 @@ def get_callback(hparams):
 def coupling_layer_specifications(num_hidden_units, num_hidden_layers, z_len):
     """
     We specify the FNN based networks over here. A single network
-    produce both s and t parts. 
+    produce both s and t parts.
     Coupling Layer currently comprises of 2 transforms.
     """
 
@@ -938,7 +939,7 @@ def print_hparams(hparams):
     # print the common relevant hparams
     for k, i in hparams.items():
         if k in common_hparams:
-            print(f"{k}:{i}") 
+            print(f"{k}:{i}")
 
     if hparams['method'] == 'advi':
         # print the advi relevant hparams
@@ -956,7 +957,7 @@ def print_hparams(hparams):
         # print the remaining hparams for custom
         for k, i in hparams.items():
             if k not in common_hparams:
-                print(f"{k}:{i}") 
+                print(f"{k}:{i}")
 
     else:
         raise ValueError("Method should be one of \
@@ -965,12 +966,12 @@ def print_hparams(hparams):
 
 class suppress_stdout_stderr(object):
     '''
-    A context manager for doing a "deep suppression" of stdout and stderr in 
-    Python, i.e. will suppress all print, even if the print originates in a 
+    A context manager for doing a "deep suppression" of stdout and stderr in
+    Python, i.e. will suppress all print, even if the print originates in a
     compiled C/Fortran sub-function.
        This will not suppress raised exceptions, since exceptions are printed
     to stderr just before a script exits, and after the context manager has
-    exited (at least, I think that is why it lets exceptions through).      
+    exited (at least, I think that is why it lets exceptions through).
 
     '''
     def __init__(self, verbose):
@@ -988,7 +989,7 @@ class suppress_stdout_stderr(object):
             os.dup2(self.null_fds[1], 2)
 
     def __exit__(self, *_):
-        
+
         # Re-assign the real stdout/stderr back to (1) and (2)
         if not self.verbose:
 
