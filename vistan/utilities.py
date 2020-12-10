@@ -733,10 +733,9 @@ def advi_callback(
     results.append(eval_function(params))
 
     if (t+1) % hparams['advi_callback_iteration'] == 0:
-        tqdm.tqdm.write(f"Iteration {t+1} IW-ELBO(M_iw_train\
-            ={hparams['M_iw_train']}), running mean :{np.nanmean(results)}")
-        tqdm.tqdm.write(f"Iteration {t+1} IW-ELBO(M_iw_train\
-            ={hparams['M_iw_train']}), current value :{(results[-1])}")
+        tqdm.tqdm.write(f"Iteration {t+1}")
+        tqdm.tqdm.write(f"ELBO, running mean  :{np.nanmean(results)}")
+        tqdm.tqdm.write(f"ELBO, current value :{results[-1]}")
 
         if len(results) > hparams['advi_callback_iteration']:
             previous_elbo = results[-(hparams['advi_callback_iteration']+1)]
@@ -748,8 +747,8 @@ def advi_callback(
         delta_elbo_mean = np.nanmean(delta_results)
         delta_elbo_median = np.nanmedian(delta_results)
 
-        tqdm.tqdm.write(f"Iteration {t+1} Δ mean {delta_elbo_mean}")
-        tqdm.tqdm.write(f"Iteration {t+1} Δ median {delta_elbo_median}")
+        tqdm.tqdm.write(f"Tolerance Δ, mean {delta_elbo_mean}")
+        tqdm.tqdm.write(f"Tolerance Δ, median {delta_elbo_median}")
         if((delta_elbo_median <= hparams['advi_convergence_threshold']) |
                 (delta_elbo_mean <= hparams['advi_convergence_threshold'])):
             tqdm.tqdm.write("Converged according to ADVI \

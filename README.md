@@ -79,13 +79,13 @@ plt.show()
 
 ### Full-rank Gaussian 
 ```python
-algo = vistan.recipe(method = 'fullrank')
-posterior = algo(code, data) 
+algo = vistan.recipe("fullrank")  
+posterior = algo(code, data)
 samples = posterior.sample(100000)
 
-points = np.arange(0,1,.01)
-plt.hist(samples['p'], 200, density = True, histtype = 'step')
-plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
+points = np.arange(0, 1, .01)
+plt.hist(samples['p'], 200, density=True, histtype='step')
+plt.plot(points, scipy.stats.beta(2, 5).pdf(points), label='True Posterior')
 plt.legend()
 plt.show()
 
@@ -93,13 +93,13 @@ plt.show()
 
 ### Flow-based VI
 ```python
-algo = vistan.recipe(method = 'flows')
-posterior = algo(code, data) 
+algo = vistan.recipe("flows")  
+posterior = algo(code, data)
 samples = posterior.sample(100000)
 
-points = np.arange(0,1,.01)
-plt.hist(samples['p'], 200, density = True, histtype = 'step')
-plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
+points = np.arange(0, 1, .01)
+plt.hist(samples['p'], 200, density=True, histtype='step')
+plt.plot(points, scipy.stats.beta(2, 5).pdf(points), label='True Posterior')
 plt.legend()
 plt.show()
 
@@ -108,13 +108,13 @@ plt.show()
 ### ADVI
 Our implementation of PyStan's ADVI.
 ```python
-algo = vistan.recipe(method = 'advi')
-posterior = algo(code, data) 
+algo = vistan.recipe("advi")  
+posterior = algo(code, data)
 samples = posterior.sample(100000)
 
-points = np.arange(0,1,.01)
-plt.hist(samples['p'], 200, density = True, histtype = 'step')
-plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
+points = np.arange(0, 1, .01)
+plt.hist(samples['p'], 200, density=True, histtype='step')
+plt.plot(points, scipy.stats.beta(2, 5).pdf(points), label='True Posterior')
 plt.legend()
 plt.show()
 ```
@@ -123,13 +123,13 @@ plt.show()
 Our implementation of different variational methods from the paper. 
 ```python
 # Try method 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 4d
-algo = vistan.recipe(method = 'method 0') 
-posterior = algo(code, data) 
+algo = vistan.recipe("method 4d")  
+posterior = algo(code, data)
 samples = posterior.sample(100000)
 
-points = np.arange(0,1,.01)
-plt.hist(samples['p'], 200, density = True, histtype = 'step')
-plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
+points = np.arange(0, 1, .01)
+plt.hist(samples['p'], 200, density=True, histtype='step')
+plt.plot(points, scipy.stats.beta(2, 5).pdf(points), label='True Posterior')
 plt.legend()
 plt.show()
 ```
@@ -138,45 +138,43 @@ plt.show()
 You can also specify custom VI algorithms to work with your Stan models using `vistan.algorithm`. Please, see the documentation of `vistan.algorithm` for a complete list of supported arguments. 
 ```python
 algo = vistan.algorithm(
-                M_iw_train = 2,
-                grad_estimator = "DReG",
-                vi_family = "gaussian",
-                per_iter_sample_budget = 10,
-                max_iters = 100)
-posterior = algo(code, data) 
+                M_iw_train=2,
+                grad_estimator="DReG",
+                vi_family="gaussian",
+                per_iter_sample_budget=10,
+                max_iters=100)
+posterior = algo(code, data)
 samples = posterior.sample(100000)
 
-points = np.arange(0,1,.01)
-plt.hist(samples['p'], 200, density = True, histtype = 'step')
-plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
+points = np.arange(0, 1, .01)
+plt.hist(samples['p'], 200, density=True, histtype='step')
+plt.plot(points, scipy.stats.beta(2, 5).pdf(points), label='True Posterior')
 plt.legend()
 plt.show()
 ```
 ### IW-sampling
 We provide support to use IW-sampling at inference time; this importance weights `M_iw_sample` candidate samples and picks one (see [Advances in BBVI][3] for more information.) IW-sampling is a post-hoc step and can be used with almost any variational scheme.
 ```python
-samples = posterior.sample(100000, M_iw_sample = 10)
+samples = posterior.sample(100000, M_iw_sample=10)
 
-points = np.arange(0,1,.01)
-plt.hist(samples['p'], 200, density = True, histtype = 'step')
-plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
+points = np.arange(0, 1, .01)
+plt.hist(samples['p'], 200, density=True, histtype='step')
+plt.plot(points, scipy.stats.beta(2, 5).pdf(points), label='True Posterior')
 plt.legend()
 plt.show()
-
 ```
 ### Initialization
 We provide support to use Laplace's method to initialize the parameters for Gaussian VI.
 ```python
-algo = vistan.algorithm(vi_family = 'gaussian', LI = True)
+algo = vistan.algorithm(vi_family='gaussian', LI=True)
 posterior = algo(code, data) 
 samples = posterior.sample(100000)
 
-points = np.arange(0,1,.01)
-plt.hist(samples['p'], 200, density = True, histtype = 'step')
-plt.plot(points,scipy.stats.beta(2,5).pdf(points),label='True Posterior')
+points = np.arange(0, 1, .01)
+plt.hist(samples['p'], 200, density=True, histtype='step')
+plt.plot(points, scipy.stats.beta(2, 5).pdf(points), label='True Posterior')
 plt.legend()
 plt.show()
-
 ```
 ### Building your own inference algorithms
 We provide access to the `model.log_prob` function we use internally for optimization. This allows you to evaluate the log density in the unconstrained space for your Stan model. Also, this function is differentiable in `autograd`.
