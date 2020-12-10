@@ -13,7 +13,7 @@ def recipe(method='meanfield', *, max_iters=100):
     """
         A function to easily run default variational methods--recipes.
 
-        Parameters
+        Args
         ----------
         method (string):
             One of ['advi', 'fullrank', 'meanfield', 'flows',
@@ -46,7 +46,7 @@ def algorithm(**kwargs):
     """
         A function to easily run custom variational methods.
 
-        Parameters
+        Args
         ----------
 
         kwargs (dict):
@@ -249,7 +249,7 @@ def inference(
         A function to launch variational inference on the model
         specified by code conditioned on data.
 
-        Parameters
+        Args
         ----------
 
         code (string):
@@ -277,6 +277,7 @@ def inference(
 
         print_hparams (bool, keyword only argument):
             Helps print the hyper-parameter dictionary for easier debugging.
+
         Returns
         -------
         Posterior instance

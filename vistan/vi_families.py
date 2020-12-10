@@ -9,6 +9,9 @@ warnings.formatwarning = utils.warning_on_one_line
 
 
 class Dist():
+    """
+        A template class for distributions.
+    """
 
     def __init__(self, zlen):
 
@@ -64,15 +67,10 @@ class Gaussian(Dist):
     def log_prob(self, params, samples):
 
         mu, sig = self.get_params(params)
-
         Λ = np.linalg.inv(sig).T
-
         M = (samples-mu)
-
         a = self.zlen*np.log(2*np.pi)
-
         b = 2*np.sum(np.log((np.diag(sig))))
-
         c = np.sum(np.matmul(M, np.matmul(Λ, Λ.T)) * M, -1)
 
         return -0.5*(a+b+c)
@@ -80,22 +78,21 @@ class Gaussian(Dist):
     def entropy(self, params):
 
         mu, sig = self.get_params(params)
-
         a = self.zlen*np.log(2*np.pi) + self.zlen
-
         b = 2*np.sum(np.log((np.diag(sig))))
 
         return 0.5*(a+b)
 
 
 class Diagonal(Gaussian):
-
+    """
+        A class to implement Diagonal Gaussian distribution
+    """
     def initial_params(self):
         return [np.zeros(self.zlen,).astype(float),
                 S*np.ones(self.zlen,).astype(float)]
 
     def transform_params(self, params):
-        # raise NotImplementedError
         return params[0], np.diag(utils.pos_diag(params[1]))
 
 
@@ -295,9 +292,25 @@ def get_var_dist(hyper_params):
 
 
 class Posterior():
-
+    """
+        A simple Posterior class.
+    """
     def __init__(self, M_iw_sample, model, params, var_dist, results):
+        """
 
+        Args:
+            M_iw_sample (int):
+                # of importance samples to use
+            model (vistan.interface.Model):
+                An instance of vistan.interface.Model that was used
+                during optimization
+            params (tuple of np.ndarray):
+                Final optimized params correponding variational approximation
+            var_dist (vistan.vi_families.Dist):
+                The final approximate distribution.
+            results (tuple):
+                optimization results
+        """
         self.M_iw_sample = M_iw_sample
         self.params = params
         (
@@ -318,7 +331,7 @@ class Posterior():
         """
             A function to allows sampling from the posterior.
 
-            Parameters
+            Args
             ----------
 
                 num_samples (int):
@@ -390,7 +403,7 @@ class Posterior():
             A function to get log_prob of the base q distribution. This is
             not necessarily same as the log_prob of the posterior.
 
-            Parameters
+            Args
             ----------
 
                 samples (dict or np.ndarray):
@@ -429,13 +442,51 @@ class Posterior():
         return self.log_q(params, samples)
 
     def constrain(self, z):
+        """A function to convert unconstrained latent variables to
+            constained space. This also returns the other generated quantities
+            as defined by the Stan code.
+
+        Args:
+            z (np.ndarray):
+                Unconstrained space sampels.
+
+        Returns:
+            np.ndarray:
+                Parameters in the constrained space along with other
+                generated quantities.
+        """
         return self.model.constrain(z)
 
     def constrained_array_to_dict(self, z):
+        """A function to convert constrained space parameters to
+            a nice dictionary format as used by PyStan's
+            StanModelFit4.extract()
+
+        Args:
+            z (np.ndarray):
+                np.ndarray as obtained form the call to 'constrain' function
+
+        Returns:
+            dict:
+                See vistan.interface.Model.constrained_array_to_dict
+        """
         assert z.ndim == 2
         return self.model.constrained_array_to_dict(z)
 
     def unconstrain(self, samples):
+        """A function to convert the samples from constrained domain
+         to constrained domain.
+
+        Args:
+            samples (dict):
+                Dictionary of parameters. Dictionary can optionally contain
+                other generated quantities or transformed parameters. Only the
+                latent variables in the unconstrained space are returned.
+                See Pystan's StanModelFit4.unconstrain for more information.
+
+        Returns:
+            np.ndarray: Unconstrained latent variables.
+        """
         assert isinstance(samples, dict)
         return self.model.unconstrain(samples)
 
