@@ -11,7 +11,7 @@ import vistan.hyperparams as hyperparams
 import pickle
 
 
-def recipe(method='meanfield', *, max_iters=100):
+def recipe(method='meanfield', *, max_iters=None):
     """
         A function to easily run default variational methods--recipes.
 
@@ -40,7 +40,9 @@ def recipe(method='meanfield', *, max_iters=100):
     """
     default_hparams = hyperparams.default_hparams_dict.copy()
     utils.get_recipe_hparams(method, default_hparams)
-    default_hparams["max_iters"] = max_iters
+    if max_iters is not None:
+        assert isinstance(max_iters, int), "Expected int for 'max_iters'."
+        default_hparams["max_iters"] = max_iters
     return functools.partial(inference, hparams=default_hparams)
 
 
