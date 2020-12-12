@@ -23,6 +23,7 @@ default_hparams_dict = {
     "max_iters": 100,
     "optimizer": "adam",
     "M_iw_train": 1,
+    "M_iw_sample": -1,
     "grad_estimator": "DReG",
     "fix_sample_budget": False,
     "per_iter_sample_budget": 100,

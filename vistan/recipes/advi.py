@@ -12,6 +12,7 @@ recipe = {
     'grad_estimator': "closed-form-entropy",
     'optimizer': 'adam',
     'M_iw_train': 1,
+    'M_iw_sample': -1,
 
     'LI': False,
     'per_iter_sample_budget': 100,

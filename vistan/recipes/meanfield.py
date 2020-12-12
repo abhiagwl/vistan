@@ -9,6 +9,7 @@ recipe = {
     'max_iters': 100,
     'optimizer': 'adam',
     'M_iw_train': 1,
+    'M_iw_sample': -1,
     'grad_estimator': "DReG",
     'per_iter_sample_budget': 100,
 

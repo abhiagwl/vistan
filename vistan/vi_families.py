@@ -297,7 +297,10 @@ class Posterior():
     """
         A simple Posterior class.
     """
-    def __init__(self, M_iw_sample, model, params, var_dist, results):
+
+    def __init__(
+            self, M_iw_sample, M_iw_train,
+            model, params, var_dist, results):
         """
 
         Args:
@@ -314,6 +317,7 @@ class Posterior():
                 optimization results
         """
         self.M_iw_sample = M_iw_sample
+        self.M_iw_train = M_iw_train
         self.params = params
         (
             self.optimization_trace,
@@ -375,7 +379,8 @@ class Posterior():
 
         if M_iw_sample is None:
             M_iw_sample = self.M_iw_sample
-        elif M_iw_sample < self.M_iw_sample:
+
+        if M_iw_sample < self.M_iw_train:
             warnings.warn("Specified M_iw_sample is less than the M_iw_train.")
 
         if M_iw_sample == 1:
@@ -387,6 +392,7 @@ class Posterior():
             lp = self.log_p(samples)
             lq = self.log_q(params, samples)
             lR = lp - lq
+            # TODO: parallelize sampler?
             sampler = np.vectorize(
                         lambda p:  np.random.multinomial(1, p),
                         signature="(n)->(n)")
@@ -430,7 +436,8 @@ class Posterior():
         else:
             warnings.warn("Using params different then the optimized params.")
 
-        warnings.warn("""
+        warnings.warn(
+            """
             log_prob function returns the log density of the
             unconstrained base q distribution used during optimization.
             If you trained with M_iw_train > 1, then this is different
@@ -493,10 +500,12 @@ class Posterior():
         return self.model.unconstrain(samples)
 
 
-def get_posterior(model, var_dist, params, M_iw_sample, results):
-
+def get_posterior(model, var_dist, params, M_iw_sample, M_iw_train, results):
+    if M_iw_sample == -1:
+        M_iw_sample = M_iw_train
     q = Posterior(
                     M_iw_sample=M_iw_sample,
+                    M_iw_train=M_iw_train,
                     model=model,
                     var_dist=var_dist,
                     params=params,

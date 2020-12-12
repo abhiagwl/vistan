@@ -170,6 +170,13 @@ def algorithm(**kwargs):
                 the IW-ELBO. Setting M_iw_train=1 reverts to
                 naive VI (optimizer ELBO).
 
+            M_iw_sample (int):
+                Defaults to -1.
+                # of importance weights during inference.
+                Sets the default number of importance weighted
+                sampes to be used at inference time.
+                If -1, then will same as M_iw_train.
+
             grad_estimator (string):
                 One of ['DReG', 'STL', 'Total-gradient', 'closed-form-entropy']
                 Total gradient refers to the regular IW-ELBO gradient.
@@ -358,6 +365,9 @@ def inference(
                                     hparams=hparams)
     return vi_families.get_posterior(
                                     model=model, var_dist=var_dist,
-                                    M_iw_sample=hparams['M_iw_train'],
+                                    M_iw_sample=hparams.get(
+                                                    'M_iw_sample',
+                                                    hparams['M_iw_train']),
+                                    M_iw_train=hparams['M_iw_train'],
                                     params=optimized_params,
                                     results=results)
