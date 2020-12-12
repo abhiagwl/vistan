@@ -13,8 +13,31 @@ import autograd
 import autograd.numpy as np
 import autograd.numpy.random as npr
 import autograd.misc.optimizers as optim
-import tqdm.auto
-import tqdm
+from tqdm.autonotebook import tqdm
+import contextlib
+import joblib
+import logging
+logging.getLogger("pystan").propagate = False
+
+
+@contextlib.contextmanager
+def tqdm_joblib(tqdm_object):
+    """Context manager to patch joblib to report into tqdm progress bar given as argument"""
+    class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+        def __call__(self, *args, **kwargs):
+            tqdm_object.update(n=self.batch_size)
+            return super().__call__(*args, **kwargs)
+
+    old_batch_callback = joblib.parallel.BatchCompletionCallBack
+    joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
+    try:
+        yield tqdm_object
+    finally:
+        joblib.parallel.BatchCompletionCallBack = old_batch_callback
+        tqdm_object.close()
 
 
 def warning_on_one_line(message, category, filename, lineno, file=None,
@@ -151,10 +174,12 @@ def get_recipe_hparams(method, hparams):
                 'advi_use': False,
                 'vi_family': "gaussian",
 
+                "comprehensive_step_search": True,
                 "comprehensive_step_search_scaling": True,
                 'step_size_exp': 0,
                 'step_size_base': 0.01,
                 'step_size_scale': 4.0,
+                'step_size_exp_range': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                 'max_iters': 100,
                 'optimizer': 'adam',
                 'M_iw_train': 1,
@@ -676,14 +701,14 @@ def get_adapted_step_size(
                         raise ValueError("ELBO value diverged \
                                 for all step_sizes. Update step_size range")
     except Exception as e:
-        print("Error occurred during when adapting step_size for ADVI")
+        print("Error occurred during adapting step_size for ADVI")
         raise e
 
 
 def optimization_handler(
                         objective_grad, eval_function,
                         init_params, optimizer,
-                        num_epochs, step_size, callback, hparams, **kwargs):
+                        num_epochs, step_size, callback, hparams):
 
     if(hparams['advi_adapt_step_size']) & (hparams['advi_use']):
         with suppress_stdout_stderr(hparams['advi_adapt_step_size_verbose']):
@@ -695,6 +720,73 @@ def optimization_handler(
                                 num_epochs=num_epochs,
                                 hparams=hparams)
 
+    if hparams.get('comprehensive_step_search', False) is False:
+        return get_optim_results(
+                                step_size=step_size,
+                                objective_grad=objective_grad,
+                                init_params=init_params,
+                                num_epochs=num_epochs,
+                                callback=callback,
+                                optimizer=optimizer,
+                                hparams=hparams)
+
+    else:
+        if hparams.get('comprehensive_step_search_scaling', False) is True:
+            steps = [
+                        hparams['step_size_base']/(
+                                hparams['latent_dim']
+                                * hparams['step_size_scale']**e)
+                        for e in reversed(
+                                    sorted(hparams['step_size_exp_range']))]
+        else:
+            steps = hparams.get('step_size_range', [0.01, 0.001, 0.0001])
+
+        results = []
+        partial_func = functools.partial(
+            get_optim_results,
+            objective_grad=objective_grad,
+            init_params=init_params,
+            num_epochs=num_epochs,
+            callback=callback,
+            optimizer=optimizer,
+            hparams=hparams)
+        warnings.filterwarnings('ignore')
+        with tqdm_joblib(tqdm(
+                        desc="Optimizing full-step-search",
+                        total=len(steps),
+                        colour='green')) as progress_bar:
+            results = joblib.Parallel(n_jobs=len(steps))(
+                                joblib.delayed(partial_func)(s) for s in steps)
+        warnings.filterwarnings('default')
+        return get_comprehensive_step_search_results(results)
+
+
+def get_comprehensive_step_search_results(results):
+    best_mean = -np.inf
+    best_result = None
+    for r in results:
+        (trace, _, _), _ = r
+        candidate_mean = np.mean(trace)
+        if candidate_mean > best_mean:
+            best_mean = candidate_mean
+            best_result = r
+    if best_result is None:
+        warnings.warn(
+            "All optimization points either diverged."
+            + "Returning the least step-size results."
+            + "Please, model maybe poorly specified, or"
+            + "the choose bigger step-size range."
+            )
+        warnings.warn(
+            "Returning results from the smallest step-size.")
+        return results[-1]
+    return best_result
+
+
+def get_optim_results(
+                    step_size, objective_grad,
+                    init_params, num_epochs,
+                    callback, optimizer, hparams):
     results = []
     t0 = time.time()
     optimized_params = run_optimization(
@@ -733,9 +825,9 @@ def advi_callback(
     results.append(eval_function(params))
 
     if (t+1) % hparams['advi_callback_iteration'] == 0:
-        tqdm.tqdm.write(f"Iteration {t+1}")
-        tqdm.tqdm.write(f"ELBO, running mean  :{np.nanmean(results)}")
-        tqdm.tqdm.write(f"ELBO, current value :{results[-1]}")
+        tqdm.write(f"Iteration {t+1}")
+        tqdm.write(f"ELBO, running mean: {np.nanmean(results)}")
+        tqdm.write(f"ELBO, current value: {results[-1]}")
 
         if len(results) > hparams['advi_callback_iteration']:
             previous_elbo = results[-(hparams['advi_callback_iteration']+1)]
@@ -747,11 +839,11 @@ def advi_callback(
         delta_elbo_mean = np.nanmean(delta_results)
         delta_elbo_median = np.nanmedian(delta_results)
 
-        tqdm.tqdm.write(f"Tolerance Δ, mean {delta_elbo_mean}")
-        tqdm.tqdm.write(f"Tolerance Δ, median {delta_elbo_median}")
+        tqdm.write(f"Tolerance Δ, mean: {delta_elbo_mean}")
+        tqdm.write(f"Tolerance Δ, median: {delta_elbo_median}")
         if((delta_elbo_median <= hparams['advi_convergence_threshold']) |
                 (delta_elbo_mean <= hparams['advi_convergence_threshold'])):
-            tqdm.tqdm.write("Converged according to ADVI \
+            tqdm.write("Converged according to ADVI \
                 metrics for Median/Mean")
             return "exit"
     return None
@@ -764,7 +856,8 @@ def adam(grad, x0, callback=None, num_iters=100,
     x, unflatten = autograd.misc.flatten(x0)
     m = np.zeros(len(x))
     v = np.zeros(len(x))
-    for i in tqdm.auto.tqdm(range(num_iters), desc="Optimizing"):
+    # for i in tqdm(range(num_iters), desc="Optimizing"):
+    for i in range(num_iters):
         g = autograd.misc.flatten(grad(unflatten(x), i))[0]
         if callback:
             flag = callback(unflatten(x), i, unflatten(g))
@@ -788,7 +881,7 @@ def advi_optimizer(
     """
     x, unflatten = autograd.misc.flatten(x0)
     s = np.zeros(len(x))
-    for i in tqdm.auto.tqdm(range(num_iters), desc="Optimizing"):
+    for i in tqdm(range(num_iters), desc="Optimizing"):
         g = autograd.misc.flatten(grad(unflatten(x), i))[0]
         if callback:
             flag = callback(unflatten(x), i, unflatten(g))

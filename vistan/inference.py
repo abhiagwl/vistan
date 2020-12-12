@@ -8,6 +8,8 @@ import vistan.interface as interface
 import vistan.utilities as utils
 import vistan.hyperparams as hyperparams
 
+import pickle
+
 
 def recipe(method='meanfield', *, max_iters=100):
     """
@@ -286,7 +288,6 @@ def inference(
 
     """
     npr.seed(hparams['seed'])
-    # exit()
     if not code.isascii():
         raise ValueError(f"""Found ascii character in code.
             PyStan currently does not support non-ascii characters.
@@ -317,6 +318,7 @@ def inference(
     objective, eval_function = objectives.get_objective_eval_fn(
                                                     model.log_prob, var_dist,
                                                     hparams)
+
     objective_grad = autograd.grad(objective)
     optimizer = utils.get_optimizer(hparams)
     callback = utils.get_callback(hparams)

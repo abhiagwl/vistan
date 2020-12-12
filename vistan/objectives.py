@@ -132,7 +132,18 @@ def modify_objective_eval_fn(
 
     # Augment the objective definition to match
     # the Autograd's optimizer template
-    return lambda params, t: -m_objective(params), m_evaluation_fn
+
+    return functools.partial(
+                modify_objective_for_autograd_optims,
+                func=m_objective,
+                maximize=True), m_evaluation_fn
+
+
+def modify_objective_for_autograd_optims(params, t, func, maximize):
+    if maximize is True:
+        return -func(params)
+    else:
+        return func(params)
 
 
 def get_objective_eval_fn(log_p, var_dist, hyper_params):
