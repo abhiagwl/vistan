@@ -181,6 +181,14 @@ def algorithm(**kwargs):
                  = 100 and M_iw_train = 10, then we use 10 copies of
                  IW-ELBO gradient to optimize at each iteration.
 
+            fix_sample_budget (bool):
+                Default to True.
+                If False, will increase the per_iter_sample budget
+                by M_iw_train times. The numer of samples drawn at each
+                iteration is decided by (num_copies_training, M_iw_train).
+                If False, it will set the 'num_copies_training'
+                parameter to be same as 'per_iter_sample_budget'.
+                If True, num_copies = per_iter_sample_budget//M_iw_train.
             --------------------
             Evaluation Function
             --------------------
@@ -234,19 +242,6 @@ def algorithm(**kwargs):
             LI_epsilon (float):
                 Default to 1e-6. A small positive used to calculate
                 Hessian at MAP estimate using finite differences.
-
-            --------------------
-            Other flexibilities
-            --------------------
-
-            fix_sample_budget (bool):
-                Default to True.
-                If False, will increase the per_iter_sample budget
-                by M_iw_train times. The numer of samples drawn at each
-                iteration is decided by (num_copies_training, M_iw_train).
-                If False, it will set the 'num_copies_training'
-                parameter to be same as 'per_iter_sample_budget'.
-                If True, num_copies = per_iter_sample_budget//M_iw_train.
 
 
 
