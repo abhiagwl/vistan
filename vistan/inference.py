@@ -76,7 +76,7 @@ def algorithm(**kwargs):
                 parameter eta as defined in the original paper.
 
             advi_adapt_step_size (bool):
-                Default is True. If True, then it uses the
+                Default to True. If True, then it uses the
                 heuristic step-size scheme in the PyStan's ADVI implementation.
 
             advi_adapt_step_size_range (iterable):
@@ -99,36 +99,60 @@ def algorithm(**kwargs):
             ---------------
 
             step_size (float):
-                Default value is 0.1
-                step_size = step_size_base/(step_size_scale**step_size_exp)
-                To try custom step_sizes, use the step_size_base attribute
+                Defaults to 0.1
+                If full_step_search_scaling is True, overridden
+                by step_size = step_size_base/(step_size_scale**step_size_exp).
+                Else, step-size is used as is.
 
-            comprehensive_step_search_scaling (bool):
-                Default is False. If True, will scale the step-size using
-                the heuristic used in the
-                paper https://arxiv.org/pdf/2006.10343.pdf. If False, it
-                will use the 'step_size' as is.
+            full_step_search (bool):
+                Default to False.
+                If True, will optimize for each step-size parallely
+                for 'max_iters' iterations, where the step-sizes
+                are selected from a range. Range can be selected in two ways:
+                First, follow full-step-search scheme from the paper
+                https://arxiv.org/pdf/2006.10343.pdf. For this, set
+                'full_step_search_scaling' to True,
+                and define 'step_size_exp_range'.
+                Second, user can define 'step_size_range' hyperparam and
+                set the 'full_step_search_scaling' to False.
+
+                If False, will optimize using the 'step_size' parameter,
+                as allowed by the 'full_step_search_scaling'.
+
+            full_step_search_scaling (bool):
+                Default to False.
+                If True, will scale the step-size using the heuristic
+                used in the paper https://arxiv.org/pdf/2006.10343.pdf,
+                where step_size = step_size_base/step_size_scale**step_size_exp
+                If False, it will use 'step_size' as is.
 
             step_size_base (float):
-                Default value is 0.1.
+                Defaults to 0.1.
 
             step_size_scale (float):
-                Default value is 4.0
+                Defaults to 4.0
 
             step_size_exp (int):
-                Default value is 0
+                Defaults to 0
 
             step_size_exp_range (iterable):
-                Default value is [0,1,2,3]. This is currently not supported.
-                For comprehensive step-search, we optimize for
+                Defaults to [0,1,2,3].
+                For full step-search, we optimize for
                 different step_sizes, where the different step_sizes are
                 generated using step_size_exp_range.
-                Comprehensive step-search is not supported right now.
+
+            step_size_range (iterable):
+                Defaults to [0.01, 0.001, 0.0001]
+                Will be used in case full_step_search_scaling is set to False,
+                and full_step_search is True. The aim is to allow for custom
+                step-search schemes without using step-size scaling.
 
             max_iters (int):
+                Defaults to 100.
                 # of optimization iterations.
                 In case of ADVI, if we choose to adapt step-size, then
-                this is only used for final adapted step_size.
+                this is only used for final adapted step_size. See ADVI
+                related hyperparams for control over other ADVI parameters.
 
             optimizer (string):
                 One of ['adam', 'sgd', 'rmsprop', 'advi']
@@ -137,7 +161,7 @@ def algorithm(**kwargs):
                 (see https://www.jmlr.org/papers/volume18/16-107/16-107.pdf
                 page 12.)
                 Currently, only 'advi' and 'adam' support early exit
-                based on the callback function
+                based callback functions
 
             M_iw_train (int):
                 # of importance weights during training to optimize
@@ -199,16 +223,16 @@ def algorithm(**kwargs):
             ----------------------------
 
             LI (bool):
-                Default is False. If True, initializes the
+                Default to False. If True, initializes the
                 Gaussian parameters to Laplace's approximation.
                 Do not use LI with real-NVP
 
             LI_max_iters (int):
-                Default is 2000. # of iterations for MAP estimate
+                Default to 2000. # of iterations for MAP estimate
                 used by scipy.optimize.minimize
 
             LI_epsilon (float):
-                Default is 1e-6. A small positive used to calculate
+                Default to 1e-6. A small positive used to calculate
                 Hessian at MAP estimate using finite differences.
 
             --------------------
@@ -216,12 +240,13 @@ def algorithm(**kwargs):
             --------------------
 
             fix_sample_budget (bool):
-                Default is True. If False, will increase the
-                per_iter_sample budget by M_iw_train times. This
-                sets the 'num_copies_training' parameter to be same
-                as 'per_iter_sample_budget' which combined with
-                'M_iw_train' decides the final number of samples at
-                each iteration (num_copies_training, M_iw_train).
+                Default to True.
+                If False, will increase the per_iter_sample budget
+                by M_iw_train times. The numer of samples drawn at each
+                iteration is decided by (num_copies_training, M_iw_train).
+                If False, it will set the 'num_copies_training'
+                parameter to be same as 'per_iter_sample_budget'.
+                If True, num_copies = per_iter_sample_budget//M_iw_train.
 
 
 
@@ -270,7 +295,7 @@ def inference(
             at 'vistan/hyperparams.py'
 
         model_name (string, keyword only argument):
-            Default is 'default_model_name'. Alternatively, you can
+            Default to 'default_model_name'. Alternatively, you can
             specify your own names. Stan does not allow '-' in names.
             So we internally change '-' to '_'.
 

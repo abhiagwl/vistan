@@ -64,7 +64,7 @@ def update_hparams(model, hparams):
         hparams['num_copies_training'] = hparams['per_iter_sample_budget']
     # If advi is not used, then we follow the the step-size scaling
     # scheme of Agrawal et al. 2020
-    if hparams['comprehensive_step_search_scaling']:
+    if hparams['full_step_search_scaling']:
         hparams['step_size'] = hparams['step_size_base'] /\
                                     (hparams['step_size_scale']
                                         ** hparams['step_size_exp'])
@@ -95,7 +95,7 @@ def get_recipe_hparams(method, hparams):
                 'evaluation_fn': 'ELBO-cfe',
 
                 'fix_sample_budget': False,
-                "comprehensive_step_search_scaling": False,
+                "full_step_search_scaling": False,
 
 
             })
@@ -105,7 +105,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use': False,
                 'vi_family': "gaussian",
 
-                "comprehensive_step_search_scaling": False,
+                "full_step_search_scaling": False,
                 'step_size': 0.01,
                 'max_iters': 100,
                 'optimizer': 'adam',
@@ -128,7 +128,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use': False,
                 'vi_family': "diagonal",
 
-                "comprehensive_step_search_scaling": False,
+                "full_step_search_scaling": False,
                 'step_size': 0.01,
                 'max_iters': 100,
                 'optimizer': 'adam',
@@ -148,7 +148,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use': False,
                 'vi_family': "rnvp",
 
-                "comprehensive_step_search_scaling": False,
+                "full_step_search_scaling": False,
                 'step_size': 0.01,
                 'max_iters': 100,
                 'optimizer': 'adam',
@@ -174,8 +174,8 @@ def get_recipe_hparams(method, hparams):
                 'advi_use': False,
                 'vi_family': "gaussian",
 
-                "comprehensive_step_search": True,
-                "comprehensive_step_search_scaling": True,
+                "full_step_search": True,
+                "full_step_search_scaling": True,
                 'step_size_exp': 0,
                 'step_size_base': 0.01,
                 'step_size_scale': 4.0,
@@ -200,7 +200,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use': False,
                 'vi_family': "gaussian",
 
-                "comprehensive_step_search_scaling": True,
+                "full_step_search_scaling": True,
                 'step_size_exp': 0,
                 'step_size_base': 0.01,
                 'step_size_scale': 4.0,
@@ -224,7 +224,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use': False,
                 'vi_family': "gaussian",
 
-                "comprehensive_step_search_scaling": True,
+                "full_step_search_scaling": True,
                 'step_size_exp': 0,
                 'step_size_base': 0.01,
                 'step_size_scale': 4.0,
@@ -252,7 +252,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use': False,
                 'vi_family': "gaussian",
 
-                "comprehensive_step_search_scaling": True,
+                "full_step_search_scaling": True,
                 'step_size_exp': 0,
                 'step_size_base': 0.01,
                 'step_size_scale': 4.0,
@@ -275,7 +275,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use': False,
                 'vi_family': "gaussian",
 
-                "comprehensive_step_search_scaling": True,
+                "full_step_search_scaling": True,
                 'step_size_exp': 0,
                 'step_size_base': 0.01,
                 'step_size_scale': 4.0,
@@ -299,7 +299,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use': False,
                 'vi_family': "rnvp",
 
-                "comprehensive_step_search_scaling": True,
+                "full_step_search_scaling": True,
                 'step_size_exp': 0,
                 'step_size_base': 0.01,
                 'step_size_scale': 4.0,
@@ -327,7 +327,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use': False,
                 'vi_family': "rnvp",
 
-                "comprehensive_step_search_scaling": True,
+                "full_step_search_scaling": True,
                 'step_size_exp': 0,
                 'step_size_base': 0.01,
                 'step_size_scale': 4.0,
@@ -359,7 +359,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use': False,
                 'vi_family': "rnvp",
 
-                "comprehensive_step_search_scaling": True,
+                "full_step_search_scaling": True,
                 'step_size_exp': 0,
                 'step_size_base': 0.01,
                 'step_size_scale': 4.0,
@@ -388,7 +388,7 @@ def get_recipe_hparams(method, hparams):
                 'advi_use': False,
                 'vi_family': "rnvp",
 
-                "comprehensive_step_search_scaling": True,
+                "full_step_search_scaling": True,
                 'step_size_exp': 0,
                 'step_size_base': 0.01,
                 'step_size_scale': 4.0,
@@ -720,7 +720,7 @@ def optimization_handler(
                                 num_epochs=num_epochs,
                                 hparams=hparams)
 
-    if hparams.get('comprehensive_step_search', False) is False:
+    if hparams.get('full_step_search', False) is False:
         return get_optim_results(
                                 step_size=step_size,
                                 objective_grad=objective_grad,
@@ -731,7 +731,7 @@ def optimization_handler(
                                 hparams=hparams)
 
     else:
-        if hparams.get('comprehensive_step_search_scaling', False) is True:
+        if hparams.get('full_step_search_scaling', False) is True:
             steps = [
                         hparams['step_size_base']/(
                                 hparams['latent_dim']
@@ -758,10 +758,10 @@ def optimization_handler(
             results = joblib.Parallel(n_jobs=len(steps))(
                                 joblib.delayed(partial_func)(s) for s in steps)
         warnings.filterwarnings('default')
-        return get_comprehensive_step_search_results(results)
+        return get_full_step_search_results(results)
 
 
-def get_comprehensive_step_search_results(results):
+def get_full_step_search_results(results):
     best_mean = -np.inf
     best_result = None
     for r in results:

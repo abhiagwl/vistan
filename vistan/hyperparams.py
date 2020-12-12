@@ -55,15 +55,15 @@ default_hparams_dict = {
     #
     # step_size (float): 
     #       Default value is 0.01 
-    #       If comprehensive_step_search_scaling is on, than this overriden by
+    #       If full_step_search_scaling is on, than this overriden by
     #       step_size = (step_size_base/(step_size_scale**step_size_exp))/# of z_dims
     #
     # step_size_exp_range (iterable): 
     #       Not supported right now.
     #       Default value is [0,1,2,3]
-    #       For comprehensive step-search, we optimize for different step_sizes,
+    #       For full step-search, we optimize for different step_sizes,
     #       where the different step_sizes are generated using step_size_exp_range.
-    #       Comprehensive step-search is not supported right now.
+    #       full step-search is not supported right now.
     #
     # max_iters (int): 
     #       # of optimization iterations. 
@@ -91,13 +91,13 @@ default_hparams_dict = {
     #       evaluation_fn. If per_iter_sample_budget = 100 and M_iw_train = 10, then we
     #       use 10 copies of IW-ELBO gradient to optimize at each iteration.
     #
-    # comprehensive_step_search_scaling (bool): 
+    # full_step_search_scaling (bool): 
     #       Default is False. If True, will scale the step-size using the heuristic used 
     #       in the paper https: //arxiv.org/pdf/2006.10343.pdf. If False, it will use the 'step_size'
     #       as is. 
 
     "step_size": 0.01,
-    "comprehensive_step_search_scaling": False,
+    "full_step_search_scaling": False,
     "step_size_base": 0.01,
     "step_size_scale": 4.0,
     "step_size_exp": 0,
