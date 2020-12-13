@@ -14,11 +14,11 @@ recipe = {
     'M_iw_sample': -1,
     'grad_estimator': "STL",
     'per_iter_sample_budget': 100,
+    'fix_sample_budget': True,
 
     'LI': False,
 
     'evaluation_fn': "IWELBO",
 
-    'fix_sample_budget': True,
 
 }

@@ -15,6 +15,7 @@ recipe = {
     'M_iw_sample': -1,
     'grad_estimator': "DReG",
     'per_iter_sample_budget': 100,
+    'fix_sample_budget': True,
 
     'LI': False,
 
@@ -26,6 +27,5 @@ recipe = {
     'rnvp_params_init_scale':  0.01,
 
 
-    'fix_sample_budget': True,
 
 }

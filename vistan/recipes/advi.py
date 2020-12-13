@@ -10,9 +10,10 @@ recipe = {
 
     'vi_family': "gaussian",
     'grad_estimator': "closed-form-entropy",
-    'optimizer': 'adam',
+    'optimizer': 'advi',
     'M_iw_train': 1,
     'M_iw_sample': -1,
+    "full_step_search_scaling": False,
 
     'LI': False,
     'per_iter_sample_budget': 100,
@@ -21,7 +22,6 @@ recipe = {
     'evaluation_fn': 'ELBO-cfe',
 
     'fix_sample_budget': False,
-    "full_step_search_scaling": False,
 
 
 }

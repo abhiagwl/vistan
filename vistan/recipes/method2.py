@@ -15,6 +15,7 @@ recipe = {
     'M_iw_sample': -1,
     'grad_estimator': "STL",
     'per_iter_sample_budget': 100,
+    'fix_sample_budget': True,
 
     'LI': True,
     "LI_max_iters": 2000,
@@ -22,6 +23,5 @@ recipe = {
 
     'evaluation_fn': "IWELBO",
 
-    'fix_sample_budget': True,
 
 }
