@@ -351,23 +351,27 @@ def inference(
     objective_grad = autograd.grad(objective)
     optimizer = utils.get_optimizer(hparams)
     callback = utils.get_callback(hparams)
-    results, optimized_params = utils.optimization_handler(
-                                    objective_grad=objective_grad,
-                                    eval_function=eval_function,
-                                    init_params=init_params,
-                                    step_size=utils.get_step_size(hparams),
-                                    optimizer=optimizer,
-                                    num_epochs=hparams['max_iters'],
-                                    callback=functools.partial(
-                                        callback,
-                                        model=model,
-                                        eval_function=eval_function),
-                                    hparams=hparams)
-    return vi_families.get_posterior(
-                                    model=model, var_dist=var_dist,
-                                    M_iw_sample=hparams.get(
-                                                    'M_iw_sample',
-                                                    hparams['M_iw_train']),
-                                    M_iw_train=hparams['M_iw_train'],
-                                    params=optimized_params,
-                                    results=results)
+    print("Starting optimization.")
+    try:
+        results, optimized_params = utils.optimization_handler(
+                                        objective_grad=objective_grad,
+                                        eval_function=eval_function,
+                                        init_params=init_params,
+                                        step_size=utils.get_step_size(hparams),
+                                        optimizer=optimizer,
+                                        num_epochs=hparams['max_iters'],
+                                        callback=functools.partial(
+                                            callback,
+                                            model=model,
+                                            eval_function=eval_function),
+                                        hparams=hparams)
+        return vi_families.get_posterior(
+                                        model=model, var_dist=var_dist,
+                                        M_iw_sample=hparams.get(
+                                                        'M_iw_sample',
+                                                        hparams['M_iw_train']),
+                                        M_iw_train=hparams['M_iw_train'],
+                                        params=optimized_params,
+                                        results=results)
+    except Exception as e:
+        raise e
