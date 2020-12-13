@@ -11,6 +11,7 @@ import autograd
 import autograd.numpy as np
 import vistan.utilities as utils
 import logging
+import joblib
 # get pystan to stop warning
 logging.getLogger("pystan").propagate = False
 ###########################################################################
@@ -59,8 +60,8 @@ def is_good_model(code, data, model_name="test_model", verbose=True):
 
         return True
     except Exception as e:
-        print(f"Error during model check...")
-        raise e
+        extra_message = (f"Error during model check.")
+        raise Exception(extra_message) from e
 
 ###########################################################################
 #  Compiling and Caching Stan models
@@ -86,20 +87,22 @@ def get_compiled_model(model_code, model_name=None, verbose=False, **kwargs):
         print('creating cached-models/ to save compiled stan models')
         os.makedirs('data/cached-models')
 
-    cache_fn = f'data/cached-models/\
-                        {utils.get_cache_fname(model_name, model_code)}.pkl'
+    cache_fn = (
+                f'data/cached-models/'
+                f'{utils.get_cache_fname(model_name, model_code)}.pkl')
 
     if os.path.isfile(cache_fn):
         try:
             with open(cache_fn, 'rb') as f:
                 sm = pickle.load(f)
-            print("Compiled model found...")
+            print("Compiled model found.")
         except Exception as e:
-            print("Error during re-loading the complied model.")
-            print(f"Try recompiling the model. Changed the\
-                    name of the model or delete \
-                    the saved pickled file at {cache_fn}.")
-            raise e
+            extra_message = (
+                f"Error during re-loading the complied model."
+                f"Try recompiling the model. Changed the"
+                f"name of the model or delete"
+                f"the cached file at {cache_fn}.")
+            raise Exception(extra_message) from e
     else:
         try:
             print("Cached model not found. Compiling...")
@@ -108,11 +111,13 @@ def get_compiled_model(model_code, model_name=None, verbose=False, **kwargs):
                                     model_code=model_code,
                                     model_name=model_name, **kwargs)
         except Exception as e:
-            print("Error during compilation...")
-            print('Could not compile code for ' + model_code)
-            raise e
+            extra_message = (
+                "Error during compilation."
+                f'Could not compile code for {model_code}'
+                )
+            raise Exception(extra_message) from e
 
-        print("Caching model...")
+        print("Model compiled. Caching model.")
         with open(cache_fn, 'wb') as f:
             pickle.dump(sm, f)
     return sm
@@ -176,9 +181,13 @@ class Model:
                                     data=self.data, iter=100,
                                     chains=1, init=0)
         except Exception as e:
-            print('Error occurred during a sampling check for compiled model.')
-            print('Could not sample for ' + model_code)
-            raise e
+            extra_message = (
+                f'Error occurred during a sampling check for compiled model. '
+                f"Try recompiling the model by removing cached model. "
+                f'Cached model maybe stored at: '
+                f'data/cached-models/'
+                f'{utils.get_cache_fname(model_name, model_code)}.pkl')
+            raise Exception(extra_message) from e
 
         self.keys = self.fit.unconstrained_param_names()
         self.zlen = len(self.keys)
@@ -237,8 +246,8 @@ class Model:
                 logging.getLogger("pystan").propagate = False
             rez = self.unconstrain(self.fit.extract())
         except Exception as e:
-            print("Error during sampling from the model.")
-            raise e
+            extra_message = ("Error during sampling from the model.")
+            raise Exception(extra_message) from e
         return rez
 
     def argmax(self, with_rez=False, method='BFGS', **kwargs):
@@ -304,7 +313,6 @@ class Model:
                             algorithm=algorithm, **kwargs)
 
         except Exception as e:
-            print('Error during ADVI...')
             raise e
 
         samples = np.array(rez["sampler_params"])[:-1, :].T
@@ -416,8 +424,12 @@ class Model:
         """
         orig_samples_shape = z.shape
         assert(orig_samples_shape[-1] == self.zlen)
+        # TODO: Try logp evaluation via threading?
+        # lp = np.array(
+        #         joblib.Parallel(n_jobs=-1, prefer="threads")(
+        #                 joblib.delayed(self.logp)(z_)
+        #                 for z_ in z.reshape(-1, self.zlen)))
         lp = np.array([self.logp(z_) for z_ in z.reshape(-1, self.zlen)])
-
         return lp.reshape(orig_samples_shape[:-1])
 
     @autograd.primitive
