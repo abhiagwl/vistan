@@ -384,6 +384,7 @@ def optimization_handler(
                                 optimizer=optimizer,
                                 num_epochs=num_epochs,
                                 hparams=hparams)
+        print(f"Adapted step-size: {step_size}")
 
     if hparams.get('full_step_search', False) is False:
         return get_optim_results(
@@ -405,7 +406,7 @@ def optimization_handler(
                                     sorted(hparams['step_size_exp_range']))]
         else:
             steps = hparams.get('step_size_range', [0.01, 0.001, 0.0001])
-
+        optimizer = functools.partial(optimizer, disable=True)
         results = []
         partial_func = functools.partial(
             get_optim_results,
@@ -414,15 +415,30 @@ def optimization_handler(
             num_epochs=num_epochs,
             callback=callback,
             optimizer=optimizer,
-            hparams=hparams)
-        warnings.filterwarnings('ignore')
-        with tqdm_joblib(tqdm(
-                        desc="Optimizing full-step-search",
-                        total=len(steps),
-                        colour='green')) as progress_bar:
-            results = joblib.Parallel(n_jobs=len(steps))(
-                                joblib.delayed(partial_func)(s) for s in steps)
-        warnings.filterwarnings('default')
+            hparams=hparams
+            )
+        try:
+            # Ignore some PyStan pickling warnings
+            warnings.filterwarnings('ignore')
+            with tqdm_joblib(tqdm(
+                desc="Optimizing via full-step-search",
+                total=len(steps),
+                colour='red',
+                bar_format='{desc}|{bar:20}|{percentage:3.0f}%{r_bar}'
+                    )) as progress_bar:
+                results = joblib.Parallel(n_jobs=len(steps))(
+                                    joblib.delayed(partial_func)(s) for s in steps)
+            warnings.filterwarnings('default')
+            # Restore the warning filter
+        except KeyboardInterrupt as e:
+            extra_message = (
+                "joblib may not handle KeyBoard Interrupt well. "
+                "You may need hold Ctrl+C a few more times to kill all"
+                " child process. It's a known issue with joblib: "
+                "https://github.com/joblib/joblib/issues/181")
+            raise Exception(extra_message) from e
+        except Exception as e:
+            raise e
         return get_full_step_search_results(results)
 
 
@@ -437,10 +453,9 @@ def get_full_step_search_results(results):
             best_result = r
     if best_result is None:
         warnings.warn(
-            "All optimization points either diverged."
-            + "Returning the least step-size results."
-            + "Please, model maybe poorly specified, or"
-            + "the choose bigger step-size range."
+            "All optimization points either diverged. "
+            "Model maybe poorly specified, or"
+            "the try a better step-size range."
             )
         warnings.warn(
             "Returning results from the smallest step-size.")
@@ -490,9 +505,6 @@ def advi_callback(
     results.append(eval_function(params))
 
     if (t+1) % hparams['advi_callback_iteration'] == 0:
-        tqdm.write(f"Iteration {t+1}")
-        tqdm.write(f"ELBO, running mean: {np.nanmean(results)}")
-        tqdm.write(f"ELBO, current value: {results[-1]}")
 
         if len(results) > hparams['advi_callback_iteration']:
             previous_elbo = results[-(hparams['advi_callback_iteration']+1)]
@@ -504,25 +516,39 @@ def advi_callback(
         delta_elbo_mean = np.nanmean(delta_results)
         delta_elbo_median = np.nanmedian(delta_results)
 
-        tqdm.write(f"Tolerance Δ, mean: {delta_elbo_mean}")
-        tqdm.write(f"Tolerance Δ, median: {delta_elbo_median}")
         if((delta_elbo_median <= hparams['advi_convergence_threshold']) |
                 (delta_elbo_mean <= hparams['advi_convergence_threshold'])):
-            tqdm.write("Converged according to ADVI \
-                metrics for Median/Mean")
+            tqdm.write(
+                f"Converged early according to ADVI "
+                f"metrics for Median/Mean")
+            tqdm.write(f"Iteration {t+1}")
+            tqdm.write(
+                f"Rel. tolerance Δ threshold: "
+                f"{hparams['advi_convergence_threshold']}")
+            tqdm.write(f"Rel. tolerance Δ mean: {delta_elbo_mean:.5f}")
+            tqdm.write(f"Rel. tolerance Δ median: {delta_elbo_median:.5f}")
             return "exit"
     return None
 
 
 def adam(grad, x0, callback=None, num_iters=100,
-         step_size=0.001, b1=0.9, b2=0.999, eps=10**-8):
+         step_size=0.001, b1=0.9, b2=0.999, eps=10**-8, disable=False):
     """Adam as described in http://arxiv.org/pdf/1412.6980.pdf.
     It's basically RMSprop with momentum and some correction terms."""
     x, unflatten = autograd.misc.flatten(x0)
     m = np.zeros(len(x))
     v = np.zeros(len(x))
-    # for i in tqdm(range(num_iters), desc="Optimizing"):
-    for i in range(num_iters):
+    # for i in range(num_iters):
+    iterator = tqdm(
+        range(num_iters),
+        desc=f"Optimizing via Adam",
+        total=num_iters,
+        colour='red',
+        disable=disable,
+        bar_format=(
+            '{desc}: {percentage:3.1f}%|{bar}| '
+            "{n_fmt}/{total_fmt} [{elapsed}<{remaining}]"))
+    for i in iterator:
         g = autograd.misc.flatten(grad(unflatten(x), i))[0]
         if callback:
             flag = callback(unflatten(x), i, unflatten(g))
@@ -539,18 +565,30 @@ def adam(grad, x0, callback=None, num_iters=100,
 
 def advi_optimizer(
                     grad, x0, callback, num_iters, step_size,
-                    epsilon=1e-16, tau=1, alpha=0.1):
+                    epsilon=1e-16, tau=1, alpha=0.1, disable=False):
 
     """ADVI optimizer as described
      in https://dl.acm.org/doi/pdf/10.5555/3122009.3122023.
     """
     x, unflatten = autograd.misc.flatten(x0)
     s = np.zeros(len(x))
-    for i in tqdm(range(num_iters), desc="Optimizing"):
+    iterator = tqdm(
+        range(num_iters),
+        desc=f"Optimizing via 'advi step-schedule'",
+        total=num_iters,
+        colour='red',
+        disable=disable,
+        bar_format=(
+            '{desc}: {percentage:3.1f}%|{bar}| '
+            '{n_fmt}/{total_fmt} [{elapsed}<{remaining}]'))
+    for i in iterator:
         g = autograd.misc.flatten(grad(unflatten(x), i))[0]
         if callback:
             flag = callback(unflatten(x), i, unflatten(g))
             if flag == "exit":
+                # iterator.set_description("Do something")
+                # iterator.update(num_iters-i+1)
+                # iterator.close()
                 return unflatten(x)
         if i == 0:
             s = g**2
