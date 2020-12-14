@@ -76,13 +76,15 @@ def get_recipe_hparams(method, hparams):
     try:
         hparams.update(cook_book[method])
     except KeyError as e:
-        raise (f"""Method not unsupported.
-            Expected one of
-            ['advi', 'fullrank', 'meanfield', 'flows',
-            'method 0', 'method 1', 'method 2', 'method 3b', 'method 3a',
-            'method 4a', 'method 4b', 'method 4c', method 4d'],
-            but got '{method}'
-            """)
+        raise KeyError(
+            f"Method not unsupported. "
+            "Expected one of "
+            "['advi', 'fullrank', 'meanfield', 'flows', "
+            "'method 0', 'method 1', 'method 2', 'method 3b', 'method 3a', "
+            "'method 4a', 'method 4b', 'method 4c', method 4d'], "
+            f"but got '{method}'")
+    except Exception as e:
+        raise e
 
 
 S = np.log(np.exp(1) - 1)
@@ -247,10 +249,10 @@ def save_laplaces_init(params,  model_name, model_code):
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     dump_pickled_files(
-                        filename=laplaces_init_file(
-                                                    dir_name,
-                                                    model_name, model_code),
-                        objects=params)
+        filename=laplaces_init_file(
+                                    dir_name,
+                                    model_name, model_code),
+        objects=params)
 
 
 ############################################################################
@@ -418,27 +420,39 @@ def optimization_handler(
             hparams=hparams
             )
         try:
-            # Ignore some PyStan pickling warnings
-            warnings.filterwarnings('ignore')
+            warnings.warn(
+                "The tqdm bar represents parallel optimizations "
+                "for different step-sizes."
+            )
             with tqdm_joblib(tqdm(
                 desc="Optimizing via full-step-search",
                 total=len(steps),
-                colour='red',
-                bar_format='{desc}|{bar:20}|{percentage:3.0f}%{r_bar}'
+                unit='optimization',
+                colour='cyan',
+                bar_format=(
+                        '{desc}|{bar}|{percentage:3.0f}%'
+                        '|{n_fmt}/{total_fmt}[{elapsed}<{remaining}]')
                     )) as progress_bar:
+                # Ignore some PyStan pickling warnings
+                warnings.filterwarnings('ignore')
                 results = joblib.Parallel(n_jobs=len(steps))(
                                     joblib.delayed(partial_func)(s) for s in steps)
-            warnings.filterwarnings('default')
-            # Restore the warning filter
+                warnings.filterwarnings('default')
+                # Restore the warning filter
         except KeyboardInterrupt as e:
             extra_message = (
                 "joblib may not handle KeyBoard Interrupt well. "
                 "You may need hold Ctrl+C a few more times to kill all"
                 " child process. It's a known issue with joblib: "
                 "https://github.com/joblib/joblib/issues/181")
-            raise Exception(extra_message) from e
+            raise KeyboardInterrupt(extra_message) from e
         except Exception as e:
-            raise e
+            extra_message = (
+                "joblib may not handle KeyBoard Interrupt well. "
+                "You may need hold Ctrl+C a few more times to kill all"
+                " child process. It's a known issue with joblib: "
+                "https://github.com/joblib/joblib/issues/181")
+            raise Exception(extra_message) from e
         return get_full_step_search_results(results)
 
 
@@ -460,6 +474,7 @@ def get_full_step_search_results(results):
         warnings.warn(
             "Returning results from the smallest step-size.")
         return results[-1]
+    print(f"Selected parameters with mean ELBO trace: {best_mean:.4f}")
     return best_result
 
 
@@ -586,9 +601,6 @@ def advi_optimizer(
         if callback:
             flag = callback(unflatten(x), i, unflatten(g))
             if flag == "exit":
-                # iterator.set_description("Do something")
-                # iterator.update(num_iters-i+1)
-                # iterator.close()
                 return unflatten(x)
         if i == 0:
             s = g**2
@@ -688,12 +700,10 @@ def tanh(x):
 
 
 def softmax_matrix(x):
-    assert x.ndim <= 2
-    y = x.T
-    z = y - np.max(y, 0)
-    z = np.exp(z)
-    return (z/np.sum(z, 0)).T
-
+    z = x - np.max(x, axis=-1, keepdims=True)
+    numerator = np.exp(z)
+    denominator = np.sum(numerator, axis=-1, keepdims=True)
+    return numerator / denominator
 
 ############################################################################
 # Generic file Utilities
