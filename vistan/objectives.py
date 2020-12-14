@@ -40,7 +40,11 @@ def IWELBO(params, log_p, log_q, sample_q, M_iw_train, num_copies_training):
     _, lp, lq, _ = objective_utils(
                                     params, log_p, log_q, sample_q,
                                     M_iw_train, num_copies_training)
-
+    # This will also work, but will not evaluate to IW-ELBO
+    # lR = lp - lq
+    # weights = autograd.core.getval(utils.softmax_matrix(lR))
+    # targets = lR
+    # return np.mean(np.sum(weights*targets, -1))
     return np.mean(autoscipy.logsumexp(lp - lq, -1)) - np.log(M_iw_train)
 
 
@@ -51,10 +55,10 @@ def IWELBO_STL(
     _, lp, _, lq_stopped = objective_utils(
                         params, log_p, log_q,
                         sample_q, M_iw_train, num_copies_training)
-
     lR = lp - lq_stopped
-
-    return np.mean(np.sum(utils.softmax_matrix(lR)*lR, -1))
+    weights = autograd.core.getval(utils.softmax_matrix(lR))
+    targets = lR
+    return np.mean(np.sum(weights*targets, -1))
 
 
 def IWELBO_DREG(
@@ -66,8 +70,10 @@ def IWELBO_DREG(
                             log_q, sample_q, M_iw_train, num_copies_training)
 
     lR = lp - lq_stopped
-
-    return np.mean(np.sum((utils.softmax_matrix(lR)**2)*lR, -1))
+    weights = autograd.core.getval(utils.softmax_matrix(lR))
+    weights = weights**2
+    targets = lR
+    return np.mean(np.sum(weights*targets, -1))
 
 
 def choose_objective_eval_fn(hyper_params):
