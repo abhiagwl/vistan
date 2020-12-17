@@ -290,7 +290,9 @@ class Model:
         else:
             return rez.x
 
-    def advi(self, algorithm='fullrank', verbose=False, **kwargs):
+    def advi(
+            self, algorithm='fullrank', 
+            verbose=False, return_constrained=False, **kwargs):
         """
             A function to run Stan's variational Bayes method (ADVI)
             Args
@@ -317,7 +319,10 @@ class Model:
 
         samples = np.array(rez["sampler_params"])[:-1, :].T
 
-        return self.unconstrain(self.constrained_array_to_dict(samples))
+        if return_constrained is True:
+            return self.constrained_array_to_dict(samples)
+        else:
+            return self.unconstrain(self.constrained_array_to_dict(samples))
 
     def mf(self, verbose=False, **kwargs):
         """

@@ -360,13 +360,15 @@ def get_adapted_step_size(
                 else:
 
                     if candidate_elbo > init_elbo:
-                        print("Best step_size found, \
-                            best step_size:", best_step_size)
+                        print(
+                            "Best step_size found,"
+                            "best step_size:", best_step_size)
                         print("Best step_size found, best elbo:", best_elbo)
                         return best_step_size
                     else:
-                        raise ValueError("ELBO value diverged \
-                                for all step_sizes. Update step_size range")
+                        raise ValueError(
+                                "ELBO value diverged "
+                                "for all step_sizes. Update step_size range")
     except Exception as e:
         print("Error occurred during adapting step_size for ADVI")
         raise e
@@ -378,6 +380,7 @@ def optimization_handler(
                         num_epochs, step_size, callback, hparams):
 
     if(hparams['advi_adapt_step_size']) & (hparams['advi_use']):
+        print(f"Adapting step-size...")
         with suppress_stdout_stderr(hparams['advi_adapt_step_size_verbose']):
             step_size = get_adapted_step_size(
                                 objective_grad=objective_grad,
