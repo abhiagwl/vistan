@@ -44,6 +44,23 @@ The typical usage of the package would have the following steps:
 2. Get an approximate posterior as `posterior=algo(code, data)`. This runs the algorithm on Stan model given by the string `code` with observations given by the `data`.
 3. Draw samples from the approximate posterior as `samples=posterior.sample(100)`. You can also draw samples using importance weighting as `posterior.sample(100, M_iw_sample=10)`. Further, you can evaluate the log-probability of the posterior as `posterior.log_prob(latents)`. 
 
+## Citing vistan
+If you use vistan, please, consider citing:
+
+```
+@inproceedings{aagrawal2020,
+  author    = {Abhinav Agrawal and
+               Daniel R. Sheldon and
+               Justin Domke},
+  title     = {Advances in Black-Box {VI:} Normalizing Flows, Importance Weighting,
+               and Optimization},
+  booktitle = {Advances in Neural Information Processing Systems 33: Annual Conference
+               on Neural Information Processing Systems 2020, NeurIPS 2020, December
+               6-12, 2020, virtual},
+  year      = {2020},
+}
+```
+
 ## Recipes
 Recipies refers to set of predetermined hyperparameters that let you quickly run some common variational algorithms. 
 ### Meanfield Gaussian 
