@@ -274,7 +274,7 @@ def get_callback_arg_dict(hparams):
 
     if hparams['advi_use'] is True:
 
-        buffer_len = np.int(max(
+        buffer_len = int(max(
                                 0.01*hparams['max_iters'] /
                                 hparams['advi_callback_iteration'], 2))
         delta_results = collections.deque(maxlen=buffer_len)
@@ -676,8 +676,8 @@ def coupling_layer_specifications(num_hidden_units, num_hidden_layers, z_len):
     Coupling Layer currently comprises of 2 transforms.
     """
 
-    d_1 = np.int(z_len//2)
-    d_2 = np.int(z_len - d_1)
+    d_1 = int(z_len//2)
+    d_2 = int(z_len - d_1)
     coupling_layer_sizes = []
     coupling_layer_sizes.append([d_1] +
                                 num_hidden_layers*[num_hidden_units] + [2*d_2])

@@ -147,13 +147,13 @@ def BinarySplit(z, j):
     D = z.shape[-1]
     d = D//2
     if D % 2 == 1:
-        d += (np.int(j) % 2)
+        d += (int(j) % 2)
 
     return np.array_split(z, [d], -1)
 
 
 def ReverseBinarySplit(z, j):
-    return BinarySplit(z, np.int(j)+1)
+    return BinarySplit(z, int(j)+1)
 
 
 class RealNVP(Flows):
